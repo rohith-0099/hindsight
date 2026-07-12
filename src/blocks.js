@@ -92,6 +92,103 @@ export function ledgerBlocks(decisions, { title = 'Decision Ledger' } = {}) {
   return blocks;
 }
 
+// ---- GUARDIAN warning -------------------------------------------------------
+
+export function guardianWarning({ decision, confidence, explanation }) {
+  const { emoji, label } = statusMeta(decision.status);
+  const blocks = [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `⚠️ *This may contradict a past decision.*`,
+      },
+    },
+    {
+      type: 'context',
+      elements: [
+        { type: 'mrkdwn', text: `${explanation || 'Possible reversal detected.'} · confidence ${(confidence * 100).toFixed(0)}%` },
+      ],
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `${emoji} *Decision #${decision.id}* (${label})\n> ${truncate(decision.text, 240).replace(/\n/g, '\n> ')}`,
+      },
+      ...(decision.permalink
+        ? {
+            accessory: {
+              type: 'button',
+              text: { type: 'plain_text', text: 'View decision', emoji: true },
+              url: decision.permalink,
+              action_id: `guardian_view_${decision.id}`,
+            },
+          }
+        : {}),
+    },
+    {
+      type: 'context',
+      elements: [
+        { type: 'mrkdwn', text: `Originally by *${decision.author_name}* in *#${decision.channel_name}*` },
+      ],
+    },
+    {
+      type: 'actions',
+      block_id: `guardian_actions_${decision.id}`,
+      elements: [
+        {
+          type: 'button',
+          style: 'primary',
+          text: { type: 'plain_text', text: '✅ Decision stands', emoji: true },
+          action_id: 'guardian_stands',
+          value: String(decision.id),
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: '🟡 We’re revisiting this', emoji: true },
+          action_id: 'guardian_revisit',
+          value: String(decision.id),
+        },
+      ],
+    },
+  ];
+  return blocks;
+}
+
+// Warning card after a button is pressed — actions replaced by a resolution line.
+export function guardianResolved({ decision, resolution, byName }) {
+  const { emoji, label } = statusMeta(decision.status);
+  const line =
+    resolution === 'stands'
+      ? `✅ *${byName}* confirmed the decision stands.`
+      : `🟡 *${byName}* marked this decision as *revisiting*.`;
+  return [
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: `⚠️ *Past decision flagged*` },
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `${emoji} *Decision #${decision.id}* (${label})\n> ${truncate(decision.text, 240).replace(/\n/g, '\n> ')}`,
+      },
+      ...(decision.permalink
+        ? {
+            accessory: {
+              type: 'button',
+              text: { type: 'plain_text', text: 'View decision', emoji: true },
+              url: decision.permalink,
+              action_id: `guardian_view_${decision.id}`,
+            },
+          }
+        : {}),
+    },
+    { type: 'context', elements: [{ type: 'mrkdwn', text: line }] },
+  ];
+}
+
 // ---- RECALL card ------------------------------------------------------------
 
 // result: {found, answer, reasoning, who, when, citations:[idx]}

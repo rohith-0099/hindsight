@@ -9,7 +9,7 @@ const STOPWORDS = new Set(
   ),
 );
 
-function tokenize(s) {
+export function tokenize(s) {
   return (s || '')
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')

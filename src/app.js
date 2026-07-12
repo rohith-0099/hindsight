@@ -2,10 +2,12 @@ import 'dotenv/config';
 import pkg from '@slack/bolt';
 const { App } = pkg;
 
-import { saveDecision, listDecisions } from './db.js';
-import { ledgerBlocks, recallCard } from './blocks.js';
-import { searchWorkspace } from './search.js';
-import { reconstructDecision } from './llm.js';
+import { saveDecision, listDecisions, getDecision, setStatus } from './db.js';
+import { ledgerBlocks, recallCard, guardianWarning, guardianResolved } from './blocks.js';
+import { searchWorkspace, tokenize } from './search.js';
+import { reconstructDecision, checkConflict } from './llm.js';
+
+const GUARDIAN_MIN_CONFIDENCE = 0.85; // conservative: prefer misses over false positives
 
 const CAPTURE_EMOJI = 'pushpin'; // 📌
 
@@ -232,6 +234,104 @@ app.event('app_mention', async ({ event, client }) => {
 
 // Acknowledge evidence-link button clicks (URL buttons)
 app.action(/^open_evidence_/, async ({ ack }) => {
+  await ack();
+});
+
+// ---- FEATURE 4: GUARDIAN ----------------------------------------------------
+
+// lexical pre-filter: candidate decisions sharing >=2 significant tokens
+function candidateDecisions(text) {
+  const msgTokens = new Set(tokenize(text));
+  if (msgTokens.size === 0) return [];
+  return listDecisions()
+    .filter((d) => d.status !== 'reversed' && d.message_ts) // ignore reversed
+    .map((d) => {
+      let overlap = 0;
+      for (const t of new Set(tokenize(d.text))) if (msgTokens.has(t)) overlap += 1;
+      return { d, overlap };
+    })
+    .filter((x) => x.overlap >= 2)
+    .sort((a, b) => b.overlap - a.overlap)
+    .slice(0, 5)
+    .map((x) => x.d);
+}
+
+app.message(async ({ message, context, client }) => {
+  // ignore edits, joins, bot messages, and the bot's own posts
+  if (message.subtype || message.bot_id) return;
+  if (!message.text || message.text.trim().length < 15) return;
+  if (context.botUserId && message.text.includes(`<@${context.botUserId}>`)) return; // that's a recall mention
+
+  const candidates = candidateDecisions(message.text);
+  if (candidates.length === 0) return; // no lexical overlap → no LLM call (cheap + conservative)
+
+  // don't flag a decision's own source message
+  if (candidates.some((d) => d.message_ts === message.ts)) return;
+
+  let verdict;
+  try {
+    verdict = await checkConflict({
+      message: message.text,
+      candidates: candidates.map((d) => ({ id: d.id, text: d.text, status: d.status })),
+    });
+  } catch (e) {
+    console.error('[guardian] checkConflict failed:', e.message);
+    return;
+  }
+
+  if (!verdict.conflict || verdict.confidence < GUARDIAN_MIN_CONFIDENCE) {
+    if (verdict.conflict) console.log(`[guardian] below threshold (${verdict.confidence}) — skipped`);
+    return;
+  }
+
+  const decision = getDecision(verdict.decision_id);
+  if (!decision) return;
+
+  await client.chat.postMessage({
+    channel: message.channel,
+    thread_ts: message.thread_ts || message.ts,
+    text: '⚠️ This may contradict a past decision.',
+    blocks: guardianWarning({
+      decision,
+      confidence: verdict.confidence,
+      explanation: verdict.explanation,
+    }),
+  });
+  console.log(`[guardian] flagged decision #${decision.id} conf=${verdict.confidence}`);
+});
+
+// Button: decision stands → status active
+app.action('guardian_stands', async ({ ack, body, action, client }) => {
+  await ack();
+  const id = Number(action.value);
+  const decision = setStatus(id, 'active');
+  const byName = await resolveName(client, body.user.id);
+  await client.chat.update({
+    channel: body.channel.id,
+    ts: body.message.ts,
+    text: 'Decision stands.',
+    blocks: guardianResolved({ decision, resolution: 'stands', byName }),
+  });
+  publishHome(client, body.user.id).catch(() => {});
+});
+
+// Button: we're revisiting → status revisited
+app.action('guardian_revisit', async ({ ack, body, action, client }) => {
+  await ack();
+  const id = Number(action.value);
+  const decision = setStatus(id, 'revisited');
+  const byName = await resolveName(client, body.user.id);
+  await client.chat.update({
+    channel: body.channel.id,
+    ts: body.message.ts,
+    text: 'Revisiting this decision.',
+    blocks: guardianResolved({ decision, resolution: 'revisit', byName }),
+  });
+  publishHome(client, body.user.id).catch(() => {});
+});
+
+// Acknowledge the URL "View decision" buttons
+app.action(/^guardian_view_/, async ({ ack }) => {
   await ack();
 });
 

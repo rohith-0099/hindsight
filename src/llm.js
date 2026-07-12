@@ -77,3 +77,53 @@ export async function reconstructDecision({ question, ledger, evidence }) {
     citations: [...new Set(cites)],
   };
 }
+
+// GUARDIAN: does a new message contradict any candidate decision?
+// candidates: [{id, text, status}]
+// Returns: { conflict, decision_id, confidence(0-1), explanation }
+export async function checkConflict({ message, candidates }) {
+  const list = candidates
+    .map((c) => `[id ${c.id}] (status=${c.status}) "${c.text}"`)
+    .join('\n');
+
+  const system = [
+    'You are Hindsight\'s Guardian. Decide whether a NEW Slack message CONTRADICTS a previously recorded team decision.',
+    'A contradiction means the new message asserts, proposes, or announces the OPPOSITE choice to a recorded decision (e.g. decision picked Postgres, new message says "let\'s use MongoDB").',
+    'NOT a contradiction: questions, agreement, restating the same decision, unrelated topics, vague musing, or merely mentioning the topic.',
+    'Be CONSERVATIVE. When unsure, report no conflict. Only flag clear, high-confidence reversals.',
+    'Respond ONLY with JSON: {"conflict": boolean, "decision_id": number|null, "confidence": number, "explanation": string}',
+    'confidence is 0..1. explanation is one short sentence naming the opposing choices.',
+  ].join('\n');
+
+  const user = [
+    `New message: "${message}"`,
+    '',
+    'Recorded decisions:',
+    list,
+  ].join('\n');
+
+  let parsed;
+  try {
+    const res = await groq.chat.completions.create({
+      model: MODEL,
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    });
+    parsed = JSON.parse(res.choices[0].message.content);
+  } catch (e) {
+    return { conflict: false, decision_id: null, confidence: 0, explanation: '' };
+  }
+
+  const id = Number.isInteger(parsed.decision_id) ? parsed.decision_id : null;
+  const conf = typeof parsed.confidence === 'number' ? parsed.confidence : 0;
+  return {
+    conflict: !!parsed.conflict && id != null,
+    decision_id: id,
+    confidence: conf,
+    explanation: parsed.explanation || '',
+  };
+}
