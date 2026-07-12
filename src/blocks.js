@@ -91,3 +91,81 @@ export function ledgerBlocks(decisions, { title = 'Decision Ledger' } = {}) {
 
   return blocks;
 }
+
+// ---- RECALL card ------------------------------------------------------------
+
+// result: {found, answer, reasoning, who, when, citations:[idx]}
+// evidence: [{text, user_name/author_name, channel_name, permalink}]
+export function recallCard({ question, result, evidence, source }) {
+  const blocks = [
+    { type: 'header', text: { type: 'plain_text', text: '🔎 Hindsight Recall', emoji: true } },
+    {
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: `*Q:* ${truncate(question, 300)}` }],
+    },
+    { type: 'divider' },
+  ];
+
+  if (!result.found) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `I couldn't reconstruct a confident answer.\n${result.answer || result.reasoning || 'No matching decision found in the ledger or recent history.'}`,
+      },
+    });
+    blocks.push({
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: `Searched via \`${source}\` · ${evidence.length} candidate messages` }],
+    });
+    return blocks;
+  }
+
+  blocks.push({
+    type: 'section',
+    text: { type: 'mrkdwn', text: `*Decision:* ${result.answer}` },
+  });
+  if (result.reasoning) {
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: `*Why:* ${result.reasoning}` },
+    });
+  }
+  blocks.push({
+    type: 'context',
+    elements: [{ type: 'mrkdwn', text: `👤 *Who:* ${result.who}  ·  🗓️ *When:* ${result.when}  ·  🔍 \`${source}\`` }],
+  });
+
+  const cited = result.citations
+    .map((i) => evidence[i])
+    .filter(Boolean);
+
+  if (cited.length) {
+    blocks.push({ type: 'divider' });
+    blocks.push({
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: `*Cited evidence (${cited.length})*` }],
+    });
+    for (const e of cited) {
+      const author = e.user_name || e.author_name || 'unknown';
+      const item = {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `> ${truncate(e.text, 220)}\n_— ${author} in #${e.channel_name || '?'}_`,
+        },
+      };
+      if (e.permalink) {
+        item.accessory = {
+          type: 'button',
+          text: { type: 'plain_text', text: 'Open', emoji: true },
+          url: e.permalink,
+          action_id: `open_evidence_${Math.random().toString(36).slice(2, 8)}`,
+        };
+      }
+      blocks.push(item);
+    }
+  }
+
+  return blocks;
+}

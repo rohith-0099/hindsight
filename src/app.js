@@ -3,7 +3,9 @@ import pkg from '@slack/bolt';
 const { App } = pkg;
 
 import { saveDecision, listDecisions } from './db.js';
-import { ledgerBlocks } from './blocks.js';
+import { ledgerBlocks, recallCard } from './blocks.js';
+import { searchWorkspace } from './search.js';
+import { reconstructDecision } from './llm.js';
 
 const CAPTURE_EMOJI = 'pushpin'; // 📌
 
@@ -157,6 +159,79 @@ app.event('app_home_opened', async ({ event, client }) => {
 
 // Acknowledge source-link button clicks (they're URL buttons; no server action needed)
 app.action(/^view_source_\d+$/, async ({ ack }) => {
+  await ack();
+});
+
+// ---- FEATURE 3: RECALL ------------------------------------------------------
+
+// Ledger rows → evidence shape (so saved decisions are citable with links)
+function ledgerAsEvidence(ledger) {
+  return ledger.map((d) => ({
+    text: d.text,
+    user_name: d.author_name,
+    channel_name: d.channel_name,
+    permalink: d.permalink,
+    ts: d.message_ts,
+    _ledger_id: d.id,
+  }));
+}
+
+// dedup by permalink (ledger item wins over searched dup)
+function mergeEvidence(ledgerEv, searchEv) {
+  const seen = new Set(ledgerEv.map((e) => e.permalink).filter(Boolean));
+  const extra = searchEv.filter((e) => !e.permalink || !seen.has(e.permalink));
+  return [...ledgerEv, ...extra];
+}
+
+app.event('app_mention', async ({ event, client }) => {
+  const question = event.text.replace(/<@[^>]+>/g, '').trim();
+  const thread_ts = event.thread_ts || event.ts;
+
+  if (!question) {
+    await client.chat.postMessage({
+      channel: event.channel,
+      thread_ts,
+      text: 'Ask me about a past decision, e.g. `@Hindsight what database did we choose?`',
+    });
+    return;
+  }
+
+  // quick ack so the user knows we're working
+  const thinking = await client.chat.postMessage({
+    channel: event.channel,
+    thread_ts,
+    text: '🔎 Searching the ledger and workspace…',
+  });
+
+  try {
+    const ledger = listDecisions();
+    const { source, results } = await searchWorkspace(client, question);
+    const evidence = mergeEvidence(ledgerAsEvidence(ledger), results);
+
+    const result = await reconstructDecision({ question, ledger, evidence });
+
+    await client.chat.update({
+      channel: event.channel,
+      ts: thinking.ts,
+      text: result.answer || 'Hindsight recall',
+      blocks: recallCard({ question, result, evidence, source }),
+    });
+    console.log(`[recall] "${question.slice(0, 40)}" via ${source}, ${results.length} hits, found=${result.found}`);
+  } catch (e) {
+    console.error('[recall] failed:', e.data?.error || e.message);
+    await client.chat.update({
+      channel: event.channel,
+      ts: thinking.ts,
+      text: 'Recall failed.',
+      blocks: [
+        { type: 'section', text: { type: 'mrkdwn', text: `⚠️ Recall failed: \`${e.data?.error || e.message}\`` } },
+      ],
+    });
+  }
+});
+
+// Acknowledge evidence-link button clicks (URL buttons)
+app.action(/^open_evidence_/, async ({ ack }) => {
   await ack();
 });
 
