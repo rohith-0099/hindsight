@@ -26,6 +26,18 @@ db.exec(`
   );
 `);
 
+// AUTO-CAPTURE: remember which messages we've already offered to save,
+// so we never prompt twice for the same message ts. Isolated from decisions.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS autocapture_prompts (
+    channel_id TEXT NOT NULL,
+    message_ts TEXT NOT NULL,
+    author_id  TEXT,
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (channel_id, message_ts)
+  );
+`);
+
 export function saveDecision(d) {
   const now = Date.now();
   const stmt = db.prepare(`
@@ -53,6 +65,26 @@ export function listDecisions() {
 
 export function getDecision(id) {
   return db.prepare('SELECT * FROM decisions WHERE id = ?').get(id);
+}
+
+// AUTO-CAPTURE helpers -------------------------------------------------------
+
+export function hasDecision(channel_id, message_ts) {
+  return !!db
+    .prepare('SELECT 1 FROM decisions WHERE channel_id = ? AND message_ts = ?')
+    .get(channel_id, message_ts);
+}
+
+export function wasPrompted(channel_id, message_ts) {
+  return !!db
+    .prepare('SELECT 1 FROM autocapture_prompts WHERE channel_id = ? AND message_ts = ?')
+    .get(channel_id, message_ts);
+}
+
+export function markPrompted(channel_id, message_ts, author_id) {
+  db.prepare(
+    'INSERT OR IGNORE INTO autocapture_prompts (channel_id, message_ts, author_id, created_at) VALUES (?, ?, ?, ?)',
+  ).run(channel_id, message_ts, author_id || null, Date.now());
 }
 
 export function setStatus(id, status) {

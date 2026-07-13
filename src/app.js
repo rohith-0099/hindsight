@@ -2,14 +2,50 @@ import 'dotenv/config';
 import pkg from '@slack/bolt';
 const { App } = pkg;
 
-import { saveDecision, listDecisions, getDecision, setStatus } from './db.js';
-import { ledgerBlocks, recallCard, guardianWarning, guardianResolved } from './blocks.js';
+import {
+  saveDecision,
+  listDecisions,
+  getDecision,
+  setStatus,
+  hasDecision,
+  wasPrompted,
+  markPrompted,
+} from './db.js';
+import {
+  ledgerBlocks,
+  recallCard,
+  guardianWarning,
+  guardianResolved,
+  autocapturePrompt,
+  captureConfirmation,
+} from './blocks.js';
 import { searchWorkspace, tokenize } from './search.js';
-import { reconstructDecision, checkConflict } from './llm.js';
+import { reconstructDecision, checkConflict, classifyDecision } from './llm.js';
 
 const GUARDIAN_MIN_CONFIDENCE = 0.85; // conservative: prefer misses over false positives
 
 const CAPTURE_EMOJI = 'pushpin'; // 📌
+
+// AUTO-CAPTURE: one env flag to disable the whole feature (default on).
+const AUTOCAPTURE = (process.env.AUTOCAPTURE || 'on').toLowerCase() !== 'off';
+const AUTOCAPTURE_MIN_CONFIDENCE = 0.8; // only prompt on high-confidence decisions
+
+// Cheap lexical pre-filter — no LLM call unless a decision-verb phrase is present.
+const DECISION_CUES = [
+  'decided',
+  'agreed',
+  'going with',
+  "we'll use",
+  'we will use',
+  'final call',
+  'settled on',
+  "let's go with",
+  'locked in',
+];
+function looksLikeDecision(text) {
+  const t = text.toLowerCase();
+  return DECISION_CUES.some((cue) => t.includes(cue));
+}
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -92,15 +128,15 @@ app.event('reaction_added', async ({ event, client }) => {
   await client.chat.postMessage({
     channel,
     thread_ts: ts,
-    text: created ? '📌 Decision captured' : '📌 Already captured',
+    text: created ? '📌 Got it — I’ll remember this' : '📌 Already got this one',
     blocks: [
       {
         type: 'section',
         text: {
           type: 'mrkdwn',
           text: created
-            ? `📌 *Decision captured* (#${decision.id})`
-            : `📌 *Already in the ledger* (#${decision.id})`,
+            ? `📌 *Got it — I’ll remember this one.* (#${decision.id})`
+            : `📌 *Already had this one saved.* (#${decision.id})`,
         },
       },
       {
@@ -108,7 +144,7 @@ app.event('reaction_added', async ({ event, client }) => {
         elements: [
           {
             type: 'mrkdwn',
-            text: `By *${decision.author_name}* in *#${decision.channel_name}* · captured by *${capturedBy}* · status *${decision.status}*`,
+            text: `By *${decision.author_name}* in *#${decision.channel_name}* · saved by *${capturedBy}* · status *${decision.status}*`,
           },
         ],
       },
@@ -193,7 +229,7 @@ app.event('app_mention', async ({ event, client }) => {
     await client.chat.postMessage({
       channel: event.channel,
       thread_ts,
-      text: 'Ask me about a past decision, e.g. `@Hindsight what database did we choose?`',
+      text: 'Ask me anything we’ve decided before — e.g. `@Hindsight what database did we choose?`',
     });
     return;
   }
@@ -202,7 +238,7 @@ app.event('app_mention', async ({ event, client }) => {
   const thinking = await client.chat.postMessage({
     channel: event.channel,
     thread_ts,
-    text: '🔎 Searching the ledger and workspace…',
+    text: '🔎 Let me think back through what we’ve decided…',
   });
 
   try {
@@ -224,9 +260,9 @@ app.event('app_mention', async ({ event, client }) => {
     await client.chat.update({
       channel: event.channel,
       ts: thinking.ts,
-      text: 'Recall failed.',
+      text: 'I hit a snag trying to remember.',
       blocks: [
-        { type: 'section', text: { type: 'mrkdwn', text: `⚠️ Recall failed: \`${e.data?.error || e.message}\`` } },
+        { type: 'section', text: { type: 'mrkdwn', text: `⚠️ Sorry — I hit a snag digging that up. Give me another try in a moment.` } },
       ],
     });
   }
@@ -256,17 +292,14 @@ function candidateDecisions(text) {
     .map((x) => x.d);
 }
 
-app.message(async ({ message, context, client }) => {
-  // ignore edits, joins, bot messages, and the bot's own posts
-  if (message.subtype || message.bot_id) return;
-  if (!message.text || message.text.trim().length < 15) return;
-  if (context.botUserId && message.text.includes(`<@${context.botUserId}>`)) return; // that's a recall mention
-
+// Guardian conflict check. Returns true if it posted a warning (i.e. it "fired").
+// Logic unchanged from the original handler — only wrapped to report whether it fired.
+async function guardianCheck({ message, client }) {
   const candidates = candidateDecisions(message.text);
-  if (candidates.length === 0) return; // no lexical overlap → no LLM call (cheap + conservative)
+  if (candidates.length === 0) return false; // no lexical overlap → no LLM call (cheap + conservative)
 
   // don't flag a decision's own source message
-  if (candidates.some((d) => d.message_ts === message.ts)) return;
+  if (candidates.some((d) => d.message_ts === message.ts)) return false;
 
   let verdict;
   try {
@@ -276,21 +309,21 @@ app.message(async ({ message, context, client }) => {
     });
   } catch (e) {
     console.error('[guardian] checkConflict failed:', e.message);
-    return;
+    return false;
   }
 
   if (!verdict.conflict || verdict.confidence < GUARDIAN_MIN_CONFIDENCE) {
     if (verdict.conflict) console.log(`[guardian] below threshold (${verdict.confidence}) — skipped`);
-    return;
+    return false;
   }
 
   const decision = getDecision(verdict.decision_id);
-  if (!decision) return;
+  if (!decision) return false;
 
   await client.chat.postMessage({
     channel: message.channel,
     thread_ts: message.thread_ts || message.ts,
-    text: '⚠️ This may contradict a past decision.',
+    text: '⚠️ Hold on — I think we already settled this.',
     blocks: guardianWarning({
       decision,
       confidence: verdict.confidence,
@@ -298,6 +331,124 @@ app.message(async ({ message, context, client }) => {
     }),
   });
   console.log(`[guardian] flagged decision #${decision.id} conf=${verdict.confidence}`);
+  return true;
+}
+
+// ---- FEATURE 5: AUTO-CAPTURE ------------------------------------------------
+
+// If a top-level message looks like a fresh decision, quietly offer to remember it.
+// Runs only after Guardian; a contradiction isn't a new decision, so we skip those.
+async function autocaptureCheck({ message, guardianFired, client }) {
+  const channel = message.channel;
+  const ts = message.ts;
+
+  if (guardianFired) {
+    console.log(`[autocapture] skipped-guardian #${ts}`);
+    return;
+  }
+  if (message.thread_ts && message.thread_ts !== ts) return; // top-level channel messages only
+  if (hasDecision(channel, ts)) return; // already 📌-captured
+  if (wasPrompted(channel, ts)) return; // never prompt twice
+  if (!looksLikeDecision(message.text)) return; // cheap lexical prefilter → no LLM call
+
+  let verdict;
+  try {
+    verdict = await classifyDecision({ message: message.text });
+  } catch (e) {
+    console.error('[autocapture] classifyDecision failed:', e.message);
+    return;
+  }
+
+  if (!verdict.is_decision || verdict.confidence < AUTOCAPTURE_MIN_CONFIDENCE) {
+    console.log(`[autocapture] below threshold (${verdict.confidence}) #${ts}`);
+    return;
+  }
+
+  // record before posting so a retry never double-prompts the same ts
+  markPrompted(channel, ts, message.user);
+
+  await client.chat.postMessage({
+    channel,
+    thread_ts: ts,
+    text: 'Sounds like a decision — want me to remember it?',
+    blocks: autocapturePrompt({ ts, authorId: message.user, statement: verdict.statement }),
+  });
+  console.log(`[autocapture] prompted #${ts} conf=${verdict.confidence}`);
+}
+
+// Single channel-message listener: Guardian first, then auto-capture.
+app.message(async ({ message, context, client }) => {
+  // ignore edits, joins, bot messages, and the bot's own posts
+  if (message.subtype || message.bot_id) return;
+  if (!message.text || message.text.trim().length < 15) return;
+  if (context.botUserId && message.text.includes(`<@${context.botUserId}>`)) return; // that's a recall mention
+
+  const guardianFired = await guardianCheck({ message, client });
+
+  if (AUTOCAPTURE) {
+    await autocaptureCheck({ message, guardianFired, client });
+  }
+});
+
+// Button: Yes, save it → same DB path as reaction capture (author = original author)
+app.action('autocapture_yes', async ({ ack, body, action, client }) => {
+  await ack();
+
+  let payload;
+  try {
+    payload = JSON.parse(action.value);
+  } catch {
+    return;
+  }
+  const { ts, authorId } = payload;
+  const channel = body.channel.id;
+
+  const [text, permalinkRes] = await Promise.all([
+    fetchMessageText(client, channel, ts),
+    client.chat.getPermalink({ channel, message_ts: ts }).catch(() => null),
+  ]);
+  const [authorName, channelName, capturedBy] = await Promise.all([
+    resolveName(client, authorId),
+    resolveChannelName(client, channel),
+    resolveName(client, body.user.id),
+  ]);
+
+  const { created, decision } = saveDecision({
+    text: text || '(message text unavailable)',
+    author_id: authorId,
+    author_name: authorName,
+    channel_id: channel,
+    channel_name: channelName,
+    message_ts: ts,
+    permalink: permalinkRes?.permalink || null,
+    captured_by: capturedBy,
+  });
+
+  await client.chat.update({
+    channel,
+    ts: body.message.ts,
+    text: created ? 'Got it — I’ll remember this one.' : 'Already had this one saved.',
+    blocks: captureConfirmation({ decision, created, capturedBy }),
+  });
+  console.log(`[autocapture] saved #${decision.id} ${created ? 'new' : 'dup'}`);
+
+  publishHome(client, body.user.id).catch(() => {});
+});
+
+// Button: No → dismiss (ts already recorded at prompt time, so we never re-ask)
+app.action('autocapture_no', async ({ ack, body, client }) => {
+  await ack();
+  await client.chat.update({
+    channel: body.channel.id,
+    ts: body.message.ts,
+    text: 'No worries — I’ll leave this one.',
+    blocks: [
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: '👍 No worries — I’ll leave this one be.' },
+      },
+    ],
+  });
 });
 
 // Button: decision stands → status active
@@ -309,7 +460,7 @@ app.action('guardian_stands', async ({ ack, body, action, client }) => {
   await client.chat.update({
     channel: body.channel.id,
     ts: body.message.ts,
-    text: 'Decision stands.',
+    text: 'Good to know — I’ll keep it as is.',
     blocks: guardianResolved({ decision, resolution: 'stands', byName }),
   });
   publishHome(client, body.user.id).catch(() => {});
@@ -324,7 +475,7 @@ app.action('guardian_revisit', async ({ ack, body, action, client }) => {
   await client.chat.update({
     channel: body.channel.id,
     ts: body.message.ts,
-    text: 'Revisiting this decision.',
+    text: 'Got it — I’ll mark this as revisiting.',
     blocks: guardianResolved({ decision, resolution: 'revisit', byName }),
   });
   publishHome(client, body.user.id).catch(() => {});

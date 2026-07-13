@@ -35,7 +35,7 @@ function decisionItem(d) {
   if (d.permalink) {
     section.accessory = {
       type: 'button',
-      text: { type: 'plain_text', text: 'View source', emoji: true },
+      text: { type: 'plain_text', text: 'Show me', emoji: true },
       url: d.permalink,
       action_id: `view_source_${d.id}`,
     };
@@ -55,7 +55,7 @@ function decisionItem(d) {
 }
 
 // Full ledger view (header + all decisions). Used by both surfaces.
-export function ledgerBlocks(decisions, { title = 'Decision Ledger' } = {}) {
+export function ledgerBlocks(decisions, { title = 'Everything I Remember' } = {}) {
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: `📚 ${title}`, emoji: true } },
     {
@@ -65,8 +65,8 @@ export function ledgerBlocks(decisions, { title = 'Decision Ledger' } = {}) {
           type: 'mrkdwn',
           text:
             decisions.length === 0
-              ? 'No decisions captured yet.'
-              : `${decisions.length} decision${decisions.length === 1 ? '' : 's'} · 🟢 active · 🟡 revisiting · 🔴 reversed`,
+              ? "Nothing saved yet — I'm ready whenever you are."
+              : `I'm holding onto ${decisions.length} decision${decisions.length === 1 ? '' : 's'} · active, revisiting or reversed`,
         },
       ],
     },
@@ -78,7 +78,7 @@ export function ledgerBlocks(decisions, { title = 'Decision Ledger' } = {}) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: 'React with 📌 on any message to capture it as a team decision.',
+        text: "React 📌 on any message and I'll remember it for the whole team.",
       },
     });
     return blocks;
@@ -101,13 +101,13 @@ export function guardianWarning({ decision, confidence, explanation }) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `⚠️ *This may contradict a past decision.*`,
+        text: `⚠️ *Hold on — I think we already settled this.*`,
       },
     },
     {
       type: 'context',
       elements: [
-        { type: 'mrkdwn', text: `${explanation || 'Possible reversal detected.'} · confidence ${(confidence * 100).toFixed(0)}%` },
+        { type: 'mrkdwn', text: `${explanation || 'This looks like it reverses an earlier call.'} · confidence ${(confidence * 100).toFixed(0)}%` },
       ],
     },
     {
@@ -120,7 +120,7 @@ export function guardianWarning({ decision, confidence, explanation }) {
         ? {
             accessory: {
               type: 'button',
-              text: { type: 'plain_text', text: 'View decision', emoji: true },
+              text: { type: 'plain_text', text: 'Show me', emoji: true },
               url: decision.permalink,
               action_id: `guardian_view_${decision.id}`,
             },
@@ -130,7 +130,7 @@ export function guardianWarning({ decision, confidence, explanation }) {
     {
       type: 'context',
       elements: [
-        { type: 'mrkdwn', text: `Originally by *${decision.author_name}* in *#${decision.channel_name}*` },
+        { type: 'mrkdwn', text: `You made this call, *${decision.author_name}*, over in *#${decision.channel_name}*` },
       ],
     },
     {
@@ -140,13 +140,13 @@ export function guardianWarning({ decision, confidence, explanation }) {
         {
           type: 'button',
           style: 'primary',
-          text: { type: 'plain_text', text: '✅ Decision stands', emoji: true },
+          text: { type: 'plain_text', text: 'Still stands', emoji: true },
           action_id: 'guardian_stands',
           value: String(decision.id),
         },
         {
           type: 'button',
-          text: { type: 'plain_text', text: '🟡 We’re revisiting this', emoji: true },
+          text: { type: 'plain_text', text: 'We’re rethinking it', emoji: true },
           action_id: 'guardian_revisit',
           value: String(decision.id),
         },
@@ -161,12 +161,12 @@ export function guardianResolved({ decision, resolution, byName }) {
   const { emoji, label } = statusMeta(decision.status);
   const line =
     resolution === 'stands'
-      ? `✅ *${byName}* confirmed the decision stands.`
-      : `🟡 *${byName}* marked this decision as *revisiting*.`;
+      ? `*${byName}* says this one still stands — noted, I'll keep it as is.`
+      : `*${byName}* says we're rethinking this — I'll mark it as *revisiting*.`;
   return [
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: `⚠️ *Past decision flagged*` },
+      text: { type: 'mrkdwn', text: `⚠️ *I flagged an earlier decision*` },
     },
     {
       type: 'section',
@@ -178,7 +178,7 @@ export function guardianResolved({ decision, resolution, byName }) {
         ? {
             accessory: {
               type: 'button',
-              text: { type: 'plain_text', text: 'View decision', emoji: true },
+              text: { type: 'plain_text', text: 'Show me', emoji: true },
               url: decision.permalink,
               action_id: `guardian_view_${decision.id}`,
             },
@@ -189,13 +189,78 @@ export function guardianResolved({ decision, resolution, byName }) {
   ];
 }
 
+// ---- AUTO-CAPTURE prompt ----------------------------------------------------
+
+// In-thread nudge asking whether a message should be remembered.
+// value on Yes carries the original message ts + author so the save path matches reaction capture.
+export function autocapturePrompt({ ts, authorId, statement }) {
+  const quoted = statement ? `\n> ${truncate(statement, 240).replace(/\n/g, '\n> ')}` : '';
+  return [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `🤔 *Sounds like a decision* — want me to remember it?${quoted}`,
+      },
+    },
+    {
+      type: 'actions',
+      block_id: `autocapture_actions_${ts}`,
+      elements: [
+        {
+          type: 'button',
+          style: 'primary',
+          text: { type: 'plain_text', text: 'Yes, save it', emoji: true },
+          action_id: 'autocapture_yes',
+          value: JSON.stringify({ ts, authorId }),
+        },
+        {
+          type: 'button',
+          text: { type: 'plain_text', text: 'No', emoji: true },
+          action_id: 'autocapture_no',
+          value: ts,
+        },
+      ],
+    },
+  ];
+}
+
+// Confirmation card shown after saving — mirrors the reaction-capture confirmation.
+export function captureConfirmation({ decision, created, capturedBy }) {
+  const preview = decision.text.length > 200 ? decision.text.slice(0, 200) + '…' : decision.text;
+  return [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: created
+          ? `📌 *Got it — I’ll remember this one.* (#${decision.id})`
+          : `📌 *Already had this one saved.* (#${decision.id})`,
+      },
+    },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `By *${decision.author_name}* in *#${decision.channel_name}* · saved by *${capturedBy}* · status *${decision.status}*`,
+        },
+      ],
+    },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: `> ${preview.replace(/\n/g, '\n> ')}` },
+    },
+  ];
+}
+
 // ---- RECALL card ------------------------------------------------------------
 
 // result: {found, answer, reasoning, who, when, citations:[idx]}
 // evidence: [{text, user_name/author_name, channel_name, permalink}]
 export function recallCard({ question, result, evidence, source }) {
   const blocks = [
-    { type: 'header', text: { type: 'plain_text', text: '🔎 Hindsight Recall', emoji: true } },
+    { type: 'header', text: { type: 'plain_text', text: '🔎 Here’s What I Remember', emoji: true } },
     {
       type: 'context',
       elements: [{ type: 'mrkdwn', text: `*Q:* ${truncate(question, 300)}` }],
@@ -208,29 +273,29 @@ export function recallCard({ question, result, evidence, source }) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `I couldn't reconstruct a confident answer.\n${result.answer || result.reasoning || 'No matching decision found in the ledger or recent history.'}`,
+        text: `I looked back but couldn't piece together a confident answer.\n${result.answer || result.reasoning || "I don't have a matching decision in the ledger or recent history."}`,
       },
     });
     blocks.push({
       type: 'context',
-      elements: [{ type: 'mrkdwn', text: `Searched via \`${source}\` · ${evidence.length} candidate messages` }],
+      elements: [{ type: 'mrkdwn', text: `Looked through \`${source}\` · ${evidence.length} messages` }],
     });
     return blocks;
   }
 
   blocks.push({
     type: 'section',
-    text: { type: 'mrkdwn', text: `*Decision:* ${result.answer}` },
+    text: { type: 'mrkdwn', text: `*Here’s the call:* ${result.answer}` },
   });
   if (result.reasoning) {
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: `*Why:* ${result.reasoning}` },
+      text: { type: 'mrkdwn', text: `*How I know:* ${result.reasoning}` },
     });
   }
   blocks.push({
     type: 'context',
-    elements: [{ type: 'mrkdwn', text: `👤 *Who:* ${result.who}  ·  🗓️ *When:* ${result.when}  ·  🔍 \`${source}\`` }],
+    elements: [{ type: 'mrkdwn', text: `*Who:* ${result.who}  ·  *When:* ${result.when}  ·  \`${source}\`` }],
   });
 
   const cited = result.citations
@@ -241,7 +306,7 @@ export function recallCard({ question, result, evidence, source }) {
     blocks.push({ type: 'divider' });
     blocks.push({
       type: 'context',
-      elements: [{ type: 'mrkdwn', text: `*Cited evidence (${cited.length})*` }],
+      elements: [{ type: 'mrkdwn', text: `*Receipts I'm going on (${cited.length})*` }],
     });
     for (const e of cited) {
       const author = e.user_name || e.author_name || 'unknown';
