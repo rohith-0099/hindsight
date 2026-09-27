@@ -1,5 +1,7 @@
 // Shared Block Kit builders — used by /decisions slash command and App Home.
 
+import { truncate, quote } from './text.js';
+
 export const STATUS_META = {
   active: { emoji: '🟢', label: 'Active' },
   revisited: { emoji: '🟡', label: 'Revisiting' },
@@ -13,11 +15,6 @@ export function statusMeta(status) {
 function slackDate(ms) {
   const unix = Math.floor((ms || Date.now()) / 1000);
   return `<!date^${unix}^{date_short_pretty}|recently>`;
-}
-
-function truncate(s, n) {
-  s = (s || '').replace(/\s+/g, ' ').trim();
-  return s.length > n ? s.slice(0, n) + '…' : s;
 }
 
 // One decision → a section block (+ context) for the list view.
@@ -114,7 +111,7 @@ export function guardianWarning({ decision, confidence, explanation }) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${emoji} *Decision #${decision.id}* (${label})\n> ${truncate(decision.text, 240).replace(/\n/g, '\n> ')}`,
+        text: `${emoji} *Decision #${decision.id}* (${label})\n${quote(truncate(decision.text, 240))}`,
       },
       ...(decision.permalink
         ? {
@@ -172,7 +169,7 @@ export function guardianResolved({ decision, resolution, byName }) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${emoji} *Decision #${decision.id}* (${label})\n> ${truncate(decision.text, 240).replace(/\n/g, '\n> ')}`,
+        text: `${emoji} *Decision #${decision.id}* (${label})\n${quote(truncate(decision.text, 240))}`,
       },
       ...(decision.permalink
         ? {
@@ -194,7 +191,7 @@ export function guardianResolved({ decision, resolution, byName }) {
 // In-thread nudge asking whether a message should be remembered.
 // value on Yes carries the original message ts + author so the save path matches reaction capture.
 export function autocapturePrompt({ ts, authorId, statement }) {
-  const quoted = statement ? `\n> ${truncate(statement, 240).replace(/\n/g, '\n> ')}` : '';
+  const quoted = statement ? `\n${quote(truncate(statement, 240))}` : '';
   return [
     {
       type: 'section',
@@ -249,7 +246,7 @@ export function captureConfirmation({ decision, created, capturedBy }) {
     },
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: `> ${preview.replace(/\n/g, '\n> ')}` },
+      text: { type: 'mrkdwn', text: quote(preview) },
     },
   ];
 }
