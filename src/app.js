@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import { config } from './config.js';
 import pkg from '@slack/bolt';
 const { App } = pkg;
 
@@ -22,13 +22,7 @@ import {
 import { searchWorkspace, tokenize } from './search.js';
 import { reconstructDecision, checkConflict, classifyDecision } from './llm.js';
 
-const GUARDIAN_MIN_CONFIDENCE = 0.85; // conservative: prefer misses over false positives
-
 const CAPTURE_EMOJI = 'pushpin'; // 📌
-
-// AUTO-CAPTURE: one env flag to disable the whole feature (default on).
-const AUTOCAPTURE = (process.env.AUTOCAPTURE || 'on').toLowerCase() !== 'off';
-const AUTOCAPTURE_MIN_CONFIDENCE = 0.8; // only prompt on high-confidence decisions
 
 // Cheap lexical pre-filter — no LLM call unless a decision-verb phrase is present.
 const DECISION_CUES = [
@@ -48,8 +42,8 @@ function looksLikeDecision(text) {
 }
 
 const app = new App({
-  token: process.env.SLACK_BOT_TOKEN,
-  appToken: process.env.SLACK_APP_TOKEN,
+  token: config.slackBotToken,
+  appToken: config.slackAppToken,
   socketMode: true,
 });
 
@@ -312,7 +306,7 @@ async function guardianCheck({ message, client }) {
     return false;
   }
 
-  if (!verdict.conflict || verdict.confidence < GUARDIAN_MIN_CONFIDENCE) {
+  if (!verdict.conflict || verdict.confidence < config.guardianMinConfidence) {
     if (verdict.conflict) console.log(`[guardian] below threshold (${verdict.confidence}) — skipped`);
     return false;
   }
@@ -359,7 +353,7 @@ async function autocaptureCheck({ message, guardianFired, client }) {
     return;
   }
 
-  if (!verdict.is_decision || verdict.confidence < AUTOCAPTURE_MIN_CONFIDENCE) {
+  if (!verdict.is_decision || verdict.confidence < config.autocaptureMinConfidence) {
     console.log(`[autocapture] below threshold (${verdict.confidence}) #${ts}`);
     return;
   }
@@ -385,7 +379,7 @@ app.message(async ({ message, context, client }) => {
 
   const guardianFired = await guardianCheck({ message, client });
 
-  if (AUTOCAPTURE) {
+  if (config.autocapture) {
     await autocaptureCheck({ message, guardianFired, client });
   }
 });
