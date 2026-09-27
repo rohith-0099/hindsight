@@ -118,36 +118,11 @@ app.event('reaction_added', async ({ event, client }) => {
     captured_by: capturedBy,
   });
 
-  const preview = decision.text.length > 200 ? decision.text.slice(0, 200) + '…' : decision.text;
-
   await client.chat.postMessage({
     channel,
     thread_ts: ts,
     text: created ? '📌 Got it — I’ll remember this' : '📌 Already got this one',
-    blocks: [
-      {
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: created
-            ? `📌 *Got it — I’ll remember this one.* (#${decision.id})`
-            : `📌 *Already had this one saved.* (#${decision.id})`,
-        },
-      },
-      {
-        type: 'context',
-        elements: [
-          {
-            type: 'mrkdwn',
-            text: `By *${decision.author_name}* in *#${decision.channel_name}* · saved by *${capturedBy}* · status *${decision.status}*`,
-          },
-        ],
-      },
-      {
-        type: 'section',
-        text: { type: 'mrkdwn', text: `> ${preview.replace(/\n/g, '\n> ')}` },
-      },
-    ],
+    blocks: captureConfirmation({ decision, created, capturedBy }),
   });
 
   console.log(`[capture] #${decision.id} ${created ? 'new' : 'dup'} in #${channelName}`);
