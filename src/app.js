@@ -1,3 +1,4 @@
+import './preflight.js'; // must stay first: exits before other modules load if env is incomplete
 import { config } from './config.js';
 import pkg from '@slack/bolt';
 const { App } = pkg;

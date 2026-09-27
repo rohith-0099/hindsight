@@ -17,4 +17,9 @@ export function loadConfig(env = process.env) {
   };
 }
 
+// Names of required variables that are unset or empty.
+export function missingEnv(env = process.env) {
+  return REQUIRED_ENV.filter((name) => !env[name] || !env[name].trim());
+}
+
 export const config = loadConfig();
