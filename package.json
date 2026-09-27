@@ -9,6 +9,9 @@
     "seed": "node scripts/seed.js"
   },
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@slack/bolt": "^4.2.0",
     "better-sqlite3": "^11.8.0",
