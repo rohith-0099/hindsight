@@ -25,3 +25,15 @@ test('missingEnv lists unset and blank variables', () => {
 test('missingEnv is empty when everything is set', () => {
   assert.deepEqual(missingEnv({ SLACK_BOT_TOKEN: 'a', SLACK_APP_TOKEN: 'b', GROQ_API_KEY: 'c' }), []);
 });
+
+test('confidence thresholds can be overridden', () => {
+  const c = loadConfig({ GUARDIAN_MIN_CONFIDENCE: '0.9', AUTOCAPTURE_MIN_CONFIDENCE: '0.7' });
+  assert.equal(c.guardianMinConfidence, 0.9);
+  assert.equal(c.autocaptureMinConfidence, 0.7);
+});
+
+test('invalid thresholds fall back to defaults', () => {
+  const c = loadConfig({ GUARDIAN_MIN_CONFIDENCE: 'high', AUTOCAPTURE_MIN_CONFIDENCE: '1.5' });
+  assert.equal(c.guardianMinConfidence, 0.85);
+  assert.equal(c.autocaptureMinConfidence, 0.8);
+});
