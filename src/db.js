@@ -1,8 +1,9 @@
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { config } from './config.js';
 
-const DB_PATH = process.env.DB_PATH || 'data/hindsight.sqlite';
+const DB_PATH = config.dbPath;
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
 const db = new Database(DB_PATH);

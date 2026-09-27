@@ -1,7 +1,8 @@
 import Groq from 'groq-sdk';
+import { config } from './config.js';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
+const groq = new Groq({ apiKey: config.groqApiKey });
+const MODEL = config.groqModel;
 
 // Reconstruct a decision from ledger + searched evidence.
 // evidence: [{text, author_name/user_name, channel_name, permalink}]
