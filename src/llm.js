@@ -1,8 +1,14 @@
 import Groq from 'groq-sdk';
 import { config } from './config.js';
 
-const groq = new Groq({ apiKey: config.groqApiKey });
 const MODEL = config.groqModel;
+
+// Created on first use so importing this module never needs an API key.
+let client;
+function groq() {
+  if (!client) client = new Groq({ apiKey: config.groqApiKey });
+  return client;
+}
 
 // Reconstruct a decision from ledger + searched evidence.
 // evidence: [{text, author_name/user_name, channel_name, permalink}]
@@ -60,7 +66,7 @@ export async function reconstructDecision({ question, ledger, evidence }) {
     evidenceLines,
   ].join('\n');
 
-  const res = await groq.chat.completions.create({
+  const res = await groq().chat.completions.create({
     model: MODEL,
     temperature: 0.2,
     response_format: { type: 'json_object' },
@@ -129,7 +135,7 @@ export async function checkConflict({ message, candidates }) {
 
   let parsed;
   try {
-    const res = await groq.chat.completions.create({
+    const res = await groq().chat.completions.create({
       model: MODEL,
       temperature: 0,
       response_format: { type: 'json_object' },
@@ -186,7 +192,7 @@ export async function classifyDecision({ message }) {
 
   let parsed;
   try {
-    const res = await groq.chat.completions.create({
+    const res = await groq().chat.completions.create({
       model: MODEL,
       temperature: 0,
       response_format: { type: 'json_object' },
