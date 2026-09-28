@@ -60,7 +60,15 @@ export function saveDecision(d) {
   return { created: true, decision };
 }
 
-export function listDecisions() {
+export const STATUSES = ['active', 'revisited', 'reversed'];
+
+// Newest first. Pass { status } to keep only one status.
+export function listDecisions({ status } = {}) {
+  if (status) {
+    return db
+      .prepare('SELECT * FROM decisions WHERE status = ? ORDER BY created_at DESC, id DESC')
+      .all(status);
+  }
   return db.prepare('SELECT * FROM decisions ORDER BY created_at DESC, id DESC').all();
 }
 
