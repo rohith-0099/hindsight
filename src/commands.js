@@ -9,12 +9,22 @@ export const STATUS_WORDS = {
   reversed: 'reversed',
 };
 
+// Shown by /decisions help. Kept next to the parser so the two stay in sync.
+export const USAGE = [
+  ['/decisions', 'Everything in the ledger, newest first'],
+  ['/decisions active | revisiting | reversed', 'Only decisions with that status'],
+  ['/decisions search <words>', 'Decisions mentioning every word'],
+  ['/decisions help', 'This message'],
+];
+
 export function parseCommand(text) {
   const trimmed = (text || '').trim();
   if (!trimmed) return { action: 'list' };
 
   const [head, ...rest] = trimmed.split(/\s+/);
   const word = head.toLowerCase();
+
+  if (word === 'help' || word === '?') return { action: 'help' };
 
   if (STATUS_WORDS[word] && rest.length === 0) {
     return { action: 'list', status: STATUS_WORDS[word] };
@@ -26,5 +36,5 @@ export function parseCommand(text) {
     return { action: 'search', query };
   }
 
-  return { action: 'error', message: `I don't know \`${trimmed}\`.` };
+  return { action: 'error', message: `I don't know \`${trimmed}\`. Try \`/decisions help\`.` };
 }

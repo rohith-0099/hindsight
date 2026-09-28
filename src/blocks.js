@@ -109,6 +109,31 @@ export function ledgerBlocks(decisions, { title, status, query } = {}) {
   return blocks;
 }
 
+// ---- /decisions help --------------------------------------------------------
+
+// usage: [[command, description], ...]
+export function helpBlocks(usage) {
+  return [
+    { type: 'header', text: { type: 'plain_text', text: '📚 Using /decisions', emoji: true } },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: usage.map(([command, description]) => `\`${command}\` — ${description}`).join('\n'),
+      },
+    },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: 'React 📌 on a message to save it, or mention me with a question to recall one.',
+        },
+      ],
+    },
+  ];
+}
+
 // ---- GUARDIAN warning -------------------------------------------------------
 
 export function guardianWarning({ decision, confidence, explanation }) {

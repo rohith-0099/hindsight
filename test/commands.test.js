@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCommand } from '../src/commands.js';
+import { parseCommand, USAGE } from '../src/commands.js';
 
 test('empty text lists everything', () => {
   assert.deepEqual(parseCommand(''), { action: 'list' });
@@ -33,4 +33,23 @@ test('search without a query is an error', () => {
 
 test('a status word followed by more text is not a filter', () => {
   assert.equal(parseCommand('active stuff').action, 'error');
+});
+
+test('help is recognised', () => {
+  assert.deepEqual(parseCommand('help'), { action: 'help' });
+  assert.deepEqual(parseCommand('?'), { action: 'help' });
+});
+
+test('unknown input points at help', () => {
+  assert.match(parseCommand('frobnicate').message, /\/decisions help/);
+});
+
+test('every usage line parses to something other than an error', () => {
+  for (const [usage] of USAGE) {
+    const example = usage
+      .replace('/decisions', '')
+      .replace('active | revisiting | reversed', 'active')
+      .replace('<words>', 'postgres');
+    assert.notEqual(parseCommand(example).action, 'error', usage);
+  }
 });
