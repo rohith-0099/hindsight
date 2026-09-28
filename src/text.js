@@ -10,3 +10,11 @@ export function truncate(s, n) {
 export function quote(s) {
   return `> ${(s || '').replace(/\n/g, '\n> ')}`;
 }
+
+// Turn broadcast mentions into plain text so repeating a message never re-pings people.
+//   <!channel> → @channel    <!subteam^S123|@backend> → @backend
+export function defuseMentions(s) {
+  return (s || '')
+    .replace(/<!(channel|here|everyone)(?:\|[^>]*)?>/g, '@$1')
+    .replace(/<!subteam\^[^>|]*(?:\|([^>]*))?>/g, (_match, label) => label || '@group');
+}
