@@ -21,6 +21,7 @@ import {
   captureConfirmation,
 } from './blocks.js';
 import { searchWorkspace, tokenize } from './search.js';
+import { parseCommand } from './commands.js';
 import { reconstructDecision, checkConflict, classifyDecision } from './llm.js';
 
 const CAPTURE_EMOJI = 'pushpin'; // 📌
@@ -134,12 +135,21 @@ app.event('reaction_added', async ({ event, client }) => {
 // ---- FEATURE 2: LEDGER ------------------------------------------------------
 
 // /decisions slash command → ephemeral Block Kit list
-app.command('/decisions', async ({ ack, respond }) => {
+//   /decisions            everything
+//   /decisions <status>   only active | revisiting | reversed
+app.command('/decisions', async ({ ack, respond, command }) => {
   await ack();
-  const decisions = listDecisions();
+  const cmd = parseCommand(command.text);
+
+  if (cmd.action === 'error') {
+    await respond({ response_type: 'ephemeral', text: cmd.message });
+    return;
+  }
+
+  const decisions = listDecisions({ status: cmd.status });
   await respond({
     response_type: 'ephemeral',
-    blocks: ledgerBlocks(decisions),
+    blocks: ledgerBlocks(decisions, { status: cmd.status }),
     text: `${decisions.length} decisions in the ledger`,
   });
 });

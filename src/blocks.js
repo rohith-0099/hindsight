@@ -52,9 +52,11 @@ function decisionItem(d) {
 }
 
 // Full ledger view (header + all decisions). Used by both surfaces.
-export function ledgerBlocks(decisions, { title = 'Everything I Remember' } = {}) {
+// Pass { status } when the list was filtered, so the title and empty state say so.
+export function ledgerBlocks(decisions, { title, status } = {}) {
+  const heading = title || (status ? `${statusMeta(status).label} Decisions` : 'Everything I Remember');
   const blocks = [
-    { type: 'header', text: { type: 'plain_text', text: `📚 ${title}`, emoji: true } },
+    { type: 'header', text: { type: 'plain_text', text: `📚 ${heading}`, emoji: true } },
     {
       type: 'context',
       elements: [
