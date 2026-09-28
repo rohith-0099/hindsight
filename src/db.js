@@ -61,7 +61,7 @@ export function saveDecision(d) {
 }
 
 export function listDecisions() {
-  return db.prepare('SELECT * FROM decisions ORDER BY created_at DESC').all();
+  return db.prepare('SELECT * FROM decisions ORDER BY created_at DESC, id DESC').all();
 }
 
 export function getDecision(id) {
