@@ -52,8 +52,12 @@ function decisionItem(d) {
 }
 
 // One-line summary under the ledger header.
-function ledgerSummary(decisions, status) {
+function ledgerSummary(decisions, status, query) {
   const n = decisions.length;
+  if (query) {
+    const q = truncate(query, 80);
+    return n === 0 ? `Nothing in the ledger matches “${q}”.` : `${n} match${n === 1 ? '' : 'es'} for “${q}”`;
+  }
   if (status) {
     const label = statusMeta(status).label.toLowerCase();
     return n === 0 ? `No ${label} decisions right now.` : `${n} ${label} decision${n === 1 ? '' : 's'}`;
@@ -73,12 +77,14 @@ export function statusBreakdown(decisions) {
 }
 
 // Full ledger view (header + all decisions). Used by both surfaces.
-// Pass { status } when the list was filtered, so the title and empty state say so.
-export function ledgerBlocks(decisions, { title, status } = {}) {
-  const heading = title || (status ? `${statusMeta(status).label} Decisions` : 'Everything I Remember');
+// Pass { status } or { query } when the list was filtered, so the title and empty state say so.
+export function ledgerBlocks(decisions, { title, status, query } = {}) {
+  const heading =
+    title ||
+    (query ? 'Search Results' : status ? `${statusMeta(status).label} Decisions` : 'Everything I Remember');
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: `📚 ${heading}`, emoji: true } },
-    { type: 'context', elements: [{ type: 'mrkdwn', text: ledgerSummary(decisions, status) }] },
+    { type: 'context', elements: [{ type: 'mrkdwn', text: ledgerSummary(decisions, status, query) }] },
     { type: 'divider' },
   ];
 
@@ -87,7 +93,7 @@ export function ledgerBlocks(decisions, { title, status } = {}) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: status
+        text: status || query
           ? 'Run `/decisions` to see everything in the ledger.'
           : "React 📌 on any message and I'll remember it for the whole team.",
       },

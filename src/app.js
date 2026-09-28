@@ -6,6 +6,7 @@ const { App } = pkg;
 import {
   saveDecision,
   listDecisions,
+  searchDecisions,
   getDecision,
   setStatus,
   hasDecision,
@@ -137,12 +138,23 @@ app.event('reaction_added', async ({ event, client }) => {
 // /decisions slash command → ephemeral Block Kit list
 //   /decisions            everything
 //   /decisions <status>   only active | revisiting | reversed
+//   /decisions search <q> keyword search over the ledger
 app.command('/decisions', async ({ ack, respond, command }) => {
   await ack();
   const cmd = parseCommand(command.text);
 
   if (cmd.action === 'error') {
     await respond({ response_type: 'ephemeral', text: cmd.message });
+    return;
+  }
+
+  if (cmd.action === 'search') {
+    const matches = searchDecisions(cmd.query);
+    await respond({
+      response_type: 'ephemeral',
+      blocks: ledgerBlocks(matches, { query: cmd.query }),
+      text: `${matches.length} decisions matching "${cmd.query}"`,
+    });
     return;
   }
 
