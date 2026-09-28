@@ -16,6 +16,7 @@ import {
 import {
   ledgerBlocks,
   helpBlocks,
+  HOME_BLOCK_LIMIT,
   recallCard,
   guardianWarning,
   guardianResolved,
@@ -175,12 +176,11 @@ app.command('/decisions', async ({ ack, respond, command }) => {
 
 // App Home tab → published Block Kit list
 async function publishHome(client, userId) {
-  const decisions = listDecisions().slice(0, 40); // Home tab block limit safety
   await client.views.publish({
     user_id: userId,
     view: {
       type: 'home',
-      blocks: ledgerBlocks(decisions),
+      blocks: ledgerBlocks(listDecisions(), { blockLimit: HOME_BLOCK_LIMIT }),
     },
   });
 }
