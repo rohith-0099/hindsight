@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ledgerBlocks,
+  recallCard,
+  guardianWarning,
   statusBreakdown,
   maxLedgerItems,
   MESSAGE_BLOCK_LIMIT,
@@ -73,4 +75,31 @@ test('quoted decision text never carries a live @channel', () => {
   const blocks = ledgerBlocks([d]);
   assert.doesNotMatch(text(blocks), /<!channel>/);
   assert.match(text(blocks), /@channel final call/);
+});
+
+test('model-written text in the recall card cannot ping the channel', () => {
+  const blocks = recallCard({
+    question: 'what did we pick? <!here>',
+    result: {
+      found: true,
+      answer: '<!channel> we picked Postgres',
+      reasoning: 'Dana said so <!everyone>',
+      who: 'Dana',
+      when: 'unknown',
+      citations: [],
+    },
+    evidence: [],
+    source: 'conversations.history',
+  });
+  assert.doesNotMatch(text(blocks), /<!(channel|here|everyone)>/);
+});
+
+test('model-written guardian explanation cannot ping the channel', () => {
+  const blocks = guardianWarning({
+    decision: decision(3),
+    confidence: 0.9,
+    explanation: '<!channel> this reverses Postgres',
+  });
+  assert.doesNotMatch(text(blocks), /<!channel>/);
+  assert.match(text(blocks), /confidence 90%/);
 });

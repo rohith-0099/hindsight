@@ -177,7 +177,7 @@ export function guardianWarning({ decision, confidence, explanation }) {
     {
       type: 'context',
       elements: [
-        { type: 'mrkdwn', text: `${explanation || 'This looks like it reverses an earlier call.'} · confidence ${(confidence * 100).toFixed(0)}%` },
+        { type: 'mrkdwn', text: `${defuseMentions(explanation) || 'This looks like it reverses an earlier call.'} · confidence ${(confidence * 100).toFixed(0)}%` },
       ],
     },
     {
@@ -264,7 +264,7 @@ export function guardianResolved({ decision, resolution, byName }) {
 // In-thread nudge asking whether a message should be remembered.
 // value on Yes carries the original message ts + author so the save path matches reaction capture.
 export function autocapturePrompt({ ts, authorId, statement }) {
-  const quoted = statement ? `\n${quote(truncate(statement, 240))}` : '';
+  const quoted = statement ? `\n${quote(defuseMentions(truncate(statement, 240)))}` : '';
   return [
     {
       type: 'section',
@@ -333,7 +333,7 @@ export function recallCard({ question, result, evidence, source }) {
     { type: 'header', text: { type: 'plain_text', text: '🔎 Here’s What I Remember', emoji: true } },
     {
       type: 'context',
-      elements: [{ type: 'mrkdwn', text: `*Q:* ${truncate(question, 300)}` }],
+      elements: [{ type: 'mrkdwn', text: `*Q:* ${defuseMentions(truncate(question, 300))}` }],
     },
     { type: 'divider' },
   ];
@@ -343,7 +343,7 @@ export function recallCard({ question, result, evidence, source }) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `I looked back but couldn't piece together a confident answer.\n${result.answer || result.reasoning || "I don't have a matching decision in the ledger or recent history."}`,
+        text: `I looked back but couldn't piece together a confident answer.\n${defuseMentions(result.answer || result.reasoning) || "I don't have a matching decision in the ledger or recent history."}`,
       },
     });
     blocks.push({
@@ -355,17 +355,17 @@ export function recallCard({ question, result, evidence, source }) {
 
   blocks.push({
     type: 'section',
-    text: { type: 'mrkdwn', text: `*Here’s the call:* ${result.answer}` },
+    text: { type: 'mrkdwn', text: `*Here’s the call:* ${defuseMentions(result.answer)}` },
   });
   if (result.reasoning) {
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: `*How I know:* ${result.reasoning}` },
+      text: { type: 'mrkdwn', text: `*How I know:* ${defuseMentions(result.reasoning)}` },
     });
   }
   blocks.push({
     type: 'context',
-    elements: [{ type: 'mrkdwn', text: `*Who:* ${result.who}  ·  *When:* ${result.when}  ·  \`${source}\`` }],
+    elements: [{ type: 'mrkdwn', text: `*Who:* ${defuseMentions(result.who)}  ·  *When:* ${defuseMentions(result.when)}  ·  \`${source}\`` }],
   });
 
   const cited = result.citations
