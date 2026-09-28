@@ -59,7 +59,17 @@ function ledgerSummary(decisions, status) {
     return n === 0 ? `No ${label} decisions right now.` : `${n} ${label} decision${n === 1 ? '' : 's'}`;
   }
   if (n === 0) return "Nothing saved yet — I'm ready whenever you are.";
-  return `I'm holding onto ${n} decision${n === 1 ? '' : 's'} · active, revisiting or reversed`;
+  return `I'm holding onto ${n} decision${n === 1 ? '' : 's'} · ${statusBreakdown(decisions)}`;
+}
+
+// "🟢 3 active · 🟡 1 revisiting" — statuses with no decisions are left out.
+export function statusBreakdown(decisions) {
+  const counts = {};
+  for (const d of decisions) counts[d.status] = (counts[d.status] || 0) + 1;
+  return Object.keys(STATUS_META)
+    .filter((status) => counts[status])
+    .map((status) => `${STATUS_META[status].emoji} ${counts[status]} ${STATUS_META[status].label.toLowerCase()}`)
+    .join(' · ');
 }
 
 // Full ledger view (header + all decisions). Used by both surfaces.
