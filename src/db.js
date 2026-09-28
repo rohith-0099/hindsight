@@ -72,6 +72,21 @@ export function listDecisions({ status } = {}) {
   return db.prepare('SELECT * FROM decisions ORDER BY created_at DESC, id DESC').all();
 }
 
+// Keyword search over decision text, author and channel. Every word must match.
+export function searchDecisions(query) {
+  const terms = (query || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return [];
+
+  const haystack = "lower(text || ' ' || coalesce(author_name, '') || ' ' || coalesce(channel_name, ''))";
+  const where = terms.map(() => `${haystack} LIKE ? ESCAPE '\\'`).join(' AND ');
+  // escape LIKE wildcards so "100%" or "snake_case" match literally
+  const params = terms.map((t) => `%${t.replace(/[\\%_]/g, '\\$&')}%`);
+
+  return db
+    .prepare(`SELECT * FROM decisions WHERE ${where} ORDER BY created_at DESC, id DESC`)
+    .all(...params);
+}
+
 export function getDecision(id) {
   return db.prepare('SELECT * FROM decisions WHERE id = ?').get(id);
 }
