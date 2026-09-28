@@ -67,3 +67,10 @@ test('a ledger that fits is shown whole, with no footer', () => {
   assert.equal(blocks.filter((b) => b.type === 'section').length, n);
   assert.doesNotMatch(text(blocks), /most recent of/);
 });
+
+test('quoted decision text never carries a live @channel', () => {
+  const d = { ...decision(1), text: '<!channel> final call: Postgres' };
+  const blocks = ledgerBlocks([d]);
+  assert.doesNotMatch(text(blocks), /<!channel>/);
+  assert.match(text(blocks), /@channel final call/);
+});

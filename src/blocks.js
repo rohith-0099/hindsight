@@ -1,6 +1,6 @@
 // Shared Block Kit builders — used by /decisions slash command and App Home.
 
-import { truncate, quote } from './text.js';
+import { truncate, quote, defuseMentions } from './text.js';
 
 export const STATUS_META = {
   active: { emoji: '🟢', label: 'Active' },
@@ -20,7 +20,7 @@ function slackDate(ms) {
 // One decision → a section block (+ context) for the list view.
 function decisionItem(d) {
   const { emoji, label } = statusMeta(d.status);
-  const preview = truncate(d.text, 220);
+  const preview = defuseMentions(truncate(d.text, 220));
 
   const section = {
     type: 'section',
@@ -184,7 +184,7 @@ export function guardianWarning({ decision, confidence, explanation }) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${emoji} *Decision #${decision.id}* (${label})\n${quote(truncate(decision.text, 240))}`,
+        text: `${emoji} *Decision #${decision.id}* (${label})\n${quote(defuseMentions(truncate(decision.text, 240)))}`,
       },
       ...(decision.permalink
         ? {
@@ -242,7 +242,7 @@ export function guardianResolved({ decision, resolution, byName }) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${emoji} *Decision #${decision.id}* (${label})\n${quote(truncate(decision.text, 240))}`,
+        text: `${emoji} *Decision #${decision.id}* (${label})\n${quote(defuseMentions(truncate(decision.text, 240)))}`,
       },
       ...(decision.permalink
         ? {
@@ -319,7 +319,7 @@ export function captureConfirmation({ decision, created, capturedBy }) {
     },
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: quote(preview) },
+      text: { type: 'mrkdwn', text: quote(defuseMentions(preview)) },
     },
   ];
 }
@@ -384,7 +384,7 @@ export function recallCard({ question, result, evidence, source }) {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `> ${truncate(e.text, 220)}\n_— ${author} in #${e.channel_name || '?'}_`,
+          text: `${quote(defuseMentions(truncate(e.text, 220)))}\n_— ${author} in #${e.channel_name || '?'}_`,
         },
       };
       if (e.permalink) {
