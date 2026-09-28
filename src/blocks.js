@@ -51,6 +51,19 @@ function decisionItem(d) {
   return [section, context];
 }
 
+// Slack rejects a message with more than 50 blocks and a Home view with more than 100.
+export const MESSAGE_BLOCK_LIMIT = 50;
+export const HOME_BLOCK_LIMIT = 100;
+
+const LEDGER_HEADER_BLOCKS = 3; // header, summary, divider
+const BLOCKS_PER_DECISION = 3; // section, context, divider
+const LEDGER_FOOTER_BLOCKS = 1; // "showing N of M" (its divider is the last decision's)
+
+// How many decisions fit in a ledger view of the given block limit.
+export function maxLedgerItems(blockLimit) {
+  return Math.floor((blockLimit - LEDGER_HEADER_BLOCKS - LEDGER_FOOTER_BLOCKS) / BLOCKS_PER_DECISION);
+}
+
 // One-line summary under the ledger header.
 function ledgerSummary(decisions, status, query) {
   const n = decisions.length;
@@ -78,7 +91,8 @@ export function statusBreakdown(decisions) {
 
 // Full ledger view (header + all decisions). Used by both surfaces.
 // Pass { status } or { query } when the list was filtered, so the title and empty state say so.
-export function ledgerBlocks(decisions, { title, status, query } = {}) {
+// blockLimit is the surface's cap; longer ledgers are cut to the most recent that fit.
+export function ledgerBlocks(decisions, { title, status, query, blockLimit = MESSAGE_BLOCK_LIMIT } = {}) {
   const heading =
     title ||
     (query ? 'Search Results' : status ? `${statusMeta(status).label} Decisions` : 'Everything I Remember');
@@ -101,10 +115,24 @@ export function ledgerBlocks(decisions, { title, status, query } = {}) {
     return blocks;
   }
 
-  decisions.forEach((d, i) => {
+  const shown = decisions.slice(0, maxLedgerItems(blockLimit));
+  shown.forEach((d, i) => {
     blocks.push(...decisionItem(d));
-    if (i < decisions.length - 1) blocks.push({ type: 'divider' });
+    if (i < shown.length - 1) blocks.push({ type: 'divider' });
   });
+
+  if (shown.length < decisions.length) {
+    blocks.push({ type: 'divider' });
+    blocks.push({
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `Showing the ${shown.length} most recent of ${decisions.length}. Narrow it down with \`/decisions search <words>\` or a status.`,
+        },
+      ],
+    });
+  }
 
   return blocks;
 }

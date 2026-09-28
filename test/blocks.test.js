@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ledgerBlocks, statusBreakdown } from '../src/blocks.js';
+import {
+  ledgerBlocks,
+  statusBreakdown,
+  maxLedgerItems,
+  MESSAGE_BLOCK_LIMIT,
+  HOME_BLOCK_LIMIT,
+} from '../src/blocks.js';
 
 function decision(id, status = 'active') {
   return {
@@ -38,4 +44,26 @@ test('each decision renders a section with a source link', () => {
   const section = blocks.find((b) => b.type === 'section');
   assert.match(section.text.text, /#7/);
   assert.equal(section.accessory.url, 'https://example.slack.com/archives/C1/p7');
+});
+
+const many = (n) => Array.from({ length: n }, (_, i) => decision(n - i));
+
+test('a long ledger stays within the message block limit', () => {
+  const blocks = ledgerBlocks(many(200));
+  assert.ok(blocks.length <= MESSAGE_BLOCK_LIMIT, `got ${blocks.length} blocks`);
+  assert.match(text(blocks.at(-1)), /Showing the 15 most recent of 200/);
+});
+
+test('a long ledger stays within the Home view block limit', () => {
+  const blocks = ledgerBlocks(many(200), { blockLimit: HOME_BLOCK_LIMIT });
+  assert.ok(blocks.length <= HOME_BLOCK_LIMIT, `got ${blocks.length} blocks`);
+  assert.equal(blocks.filter((b) => b.type === 'section').length, maxLedgerItems(HOME_BLOCK_LIMIT));
+});
+
+test('a ledger that fits is shown whole, with no footer', () => {
+  const n = maxLedgerItems(MESSAGE_BLOCK_LIMIT);
+  const blocks = ledgerBlocks(many(n));
+  assert.ok(blocks.length <= MESSAGE_BLOCK_LIMIT);
+  assert.equal(blocks.filter((b) => b.type === 'section').length, n);
+  assert.doesNotMatch(text(blocks), /most recent of/);
 });
