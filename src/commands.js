@@ -20,5 +20,11 @@ export function parseCommand(text) {
     return { action: 'list', status: STATUS_WORDS[word] };
   }
 
+  if (word === 'search' || word === 'find') {
+    const query = rest.join(' ');
+    if (!query) return { action: 'error', message: 'Tell me what to look for — e.g. `/decisions search postgres`.' };
+    return { action: 'search', query };
+  }
+
   return { action: 'error', message: `I don't know \`${trimmed}\`.` };
 }
