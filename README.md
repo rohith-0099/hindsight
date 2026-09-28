@@ -12,6 +12,18 @@ It captures decisions as they happen, answers "what did we decide about X?" with
 - **Guardian** — when a new message reverses a recorded decision, Hindsight replies in-thread and asks whether the decision still stands or is being revisited.
 - **Auto-capture** — messages that read like a decision ("final call: Postgres") get a quiet in-thread offer to save them.
 
+## Usage
+
+| Do this | To |
+| --- | --- |
+| React 📌 on a message | Save it as a decision |
+| `@Hindsight what did we decide about X?` | Get an answer with links to the source messages |
+| `/decisions` | See the whole ledger |
+| `/decisions active` \| `revisiting` \| `reversed` | Filter the ledger by status |
+| `/decisions search <words>` | Find decisions by keyword |
+
+More in [docs/commands.md](docs/commands.md).
+
 ## Quick start
 
 Requires Node.js 20 or newer.
