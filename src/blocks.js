@@ -51,24 +51,24 @@ function decisionItem(d) {
   return [section, context];
 }
 
+// One-line summary under the ledger header.
+function ledgerSummary(decisions, status) {
+  const n = decisions.length;
+  if (status) {
+    const label = statusMeta(status).label.toLowerCase();
+    return n === 0 ? `No ${label} decisions right now.` : `${n} ${label} decision${n === 1 ? '' : 's'}`;
+  }
+  if (n === 0) return "Nothing saved yet — I'm ready whenever you are.";
+  return `I'm holding onto ${n} decision${n === 1 ? '' : 's'} · active, revisiting or reversed`;
+}
+
 // Full ledger view (header + all decisions). Used by both surfaces.
 // Pass { status } when the list was filtered, so the title and empty state say so.
 export function ledgerBlocks(decisions, { title, status } = {}) {
   const heading = title || (status ? `${statusMeta(status).label} Decisions` : 'Everything I Remember');
   const blocks = [
     { type: 'header', text: { type: 'plain_text', text: `📚 ${heading}`, emoji: true } },
-    {
-      type: 'context',
-      elements: [
-        {
-          type: 'mrkdwn',
-          text:
-            decisions.length === 0
-              ? "Nothing saved yet — I'm ready whenever you are."
-              : `I'm holding onto ${decisions.length} decision${decisions.length === 1 ? '' : 's'} · active, revisiting or reversed`,
-        },
-      ],
-    },
+    { type: 'context', elements: [{ type: 'mrkdwn', text: ledgerSummary(decisions, status) }] },
     { type: 'divider' },
   ];
 
@@ -77,7 +77,9 @@ export function ledgerBlocks(decisions, { title, status } = {}) {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: "React 📌 on any message and I'll remember it for the whole team.",
+        text: status
+          ? 'Run `/decisions` to see everything in the ledger.'
+          : "React 📌 on any message and I'll remember it for the whole team.",
       },
     });
     return blocks;
