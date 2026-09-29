@@ -39,6 +39,19 @@ db.exec(`
   );
 `);
 
+// Status history: one row each time a decision moves from one status to another.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS decision_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    decision_id INTEGER NOT NULL REFERENCES decisions(id),
+    from_status TEXT NOT NULL,
+    to_status   TEXT NOT NULL,
+    actor       TEXT,
+    created_at  INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS decision_events_by_decision ON decision_events(decision_id);
+`);
+
 export function saveDecision(d) {
   const now = Date.now();
   const stmt = db.prepare(`
@@ -112,10 +125,29 @@ export function markPrompted(channel_id, message_ts, author_id) {
 }
 
 // Returns the updated decision, or undefined when there is no decision with that id.
-export function setStatus(id, status) {
+// actor is the display name of whoever made the change; it is kept in the history.
+export function setStatus(id, status, actor = null) {
   if (!STATUSES.includes(status)) throw new Error(`Unknown status: ${status}`);
-  db.prepare('UPDATE decisions SET status = ?, updated_at = ? WHERE id = ?').run(status, Date.now(), id);
+
+  const current = getDecision(id);
+  if (!current) return undefined;
+  if (current.status === status) return current; // nothing changed, nothing to record
+
+  const now = Date.now();
+  db.transaction(() => {
+    db.prepare('UPDATE decisions SET status = ?, updated_at = ? WHERE id = ?').run(status, now, id);
+    db.prepare(
+      'INSERT INTO decision_events (decision_id, from_status, to_status, actor, created_at) VALUES (?, ?, ?, ?, ?)',
+    ).run(id, current.status, status, actor, now);
+  })();
   return getDecision(id);
+}
+
+// Status changes for one decision, oldest first.
+export function getHistory(id) {
+  return db
+    .prepare('SELECT * FROM decision_events WHERE decision_id = ? ORDER BY created_at ASC, id ASC')
+    .all(id);
 }
 
 export default db;
