@@ -3,9 +3,8 @@ import assert from 'node:assert/strict';
 
 // Use a throwaway in-memory database; must be set before db.js is imported.
 process.env.DB_PATH = ':memory:';
-const { saveDecision, listDecisions, getDecision, setStatus, hasDecision, searchDecisions } = await import(
-  '../src/db.js'
-);
+const { saveDecision, listDecisions, getDecision, setStatus, getHistory, hasDecision, searchDecisions } =
+  await import('../src/db.js');
 
 let n = 0;
 function sample(overrides = {}) {
@@ -99,4 +98,26 @@ test('setStatus rejects a status the ledger does not know', () => {
 
 test('setStatus returns undefined for a missing decision', () => {
   assert.equal(setStatus(999999, 'reversed'), undefined);
+});
+
+test('status changes are recorded in order with who made them', () => {
+  const d = saveDecision(sample()).decision;
+  setStatus(d.id, 'revisited', 'Sara');
+  setStatus(d.id, 'reversed', 'Dev');
+  const history = getHistory(d.id).map((e) => [e.from_status, e.to_status, e.actor]);
+  assert.deepEqual(history, [
+    ['active', 'revisited', 'Sara'],
+    ['revisited', 'reversed', 'Dev'],
+  ]);
+});
+
+test('setting the same status again records nothing', () => {
+  const d = saveDecision(sample()).decision;
+  setStatus(d.id, 'active', 'Sara');
+  assert.deepEqual(getHistory(d.id), []);
+});
+
+test('a new decision has no history', () => {
+  const d = saveDecision(sample()).decision;
+  assert.deepEqual(getHistory(d.id), []);
 });
