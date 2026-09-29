@@ -6,6 +6,7 @@ import {
   guardianWarning,
   statusChanged,
   decisionDetail,
+  statsBlocks,
   statusBreakdown,
   maxLedgerItems,
   MESSAGE_BLOCK_LIMIT,
@@ -139,4 +140,28 @@ test('decisionDetail lists status history oldest first', () => {
 test('decisionDetail keeps very long text inside the section limit', () => {
   const d = { ...decision(9), text: 'y'.repeat(5000) };
   assert.ok(decisionDetail({ decision: d })[1].text.text.length <= 3000);
+});
+
+test('statsBlocks shows totals and rankings', () => {
+  const blocks = statsBlocks({
+    total: 6,
+    byStatus: { active: 4, revisited: 1, reversed: 1 },
+    topAuthors: [{ name: 'Priya', count: 3 }],
+    topChannels: [{ name: 'engineering', count: 3 }],
+  });
+  assert.match(text(blocks), /\*6\* decisions saved/);
+  assert.match(text(blocks), /🟢 Active: \*4\*/);
+  assert.match(text(blocks), /Priya — 3/);
+  assert.match(text(blocks), /#engineering — 3/);
+});
+
+test('statsBlocks on an empty ledger has no rankings', () => {
+  const blocks = statsBlocks({
+    total: 0,
+    byStatus: { active: 0, revisited: 0, reversed: 0 },
+    topAuthors: [],
+    topChannels: [],
+  });
+  assert.equal(blocks.length, 2);
+  assert.match(text(blocks), /Nothing saved yet/);
 });

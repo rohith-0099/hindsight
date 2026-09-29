@@ -208,6 +208,44 @@ export function decisionDetail({ decision, history = [] }) {
   return blocks;
 }
 
+// ---- /decisions stats -------------------------------------------------------
+
+// stats: the object returned by ledgerStats()
+export function statsBlocks(stats) {
+  const blocks = [{ type: 'header', text: { type: 'plain_text', text: '📊 Ledger Stats', emoji: true } }];
+
+  if (stats.total === 0) {
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: "Nothing saved yet — React 📌 on a message and I'll start counting." },
+    });
+    return blocks;
+  }
+
+  const statusLines = Object.keys(STATUS_META).map(
+    (status) => `${STATUS_META[status].emoji} ${STATUS_META[status].label}: *${stats.byStatus[status] || 0}*`,
+  );
+  blocks.push({
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `*${stats.total}* decision${stats.total === 1 ? '' : 's'} saved\n${statusLines.join('\n')}`,
+    },
+  });
+
+  const ranked = (rows, prefix) => rows.map((r) => `${prefix}${r.name} — ${r.count}`).join('\n');
+  const fields = [];
+  if (stats.topAuthors.length) {
+    fields.push({ type: 'mrkdwn', text: `*Most decisions by*\n${ranked(stats.topAuthors, '')}` });
+  }
+  if (stats.topChannels.length) {
+    fields.push({ type: 'mrkdwn', text: `*Busiest channels*\n${ranked(stats.topChannels, '#')}` });
+  }
+  if (fields.length) blocks.push({ type: 'section', fields });
+
+  return blocks;
+}
+
 // ---- status change ----------------------------------------------------------
 
 // Reply to /decisions reverse|revisit|reopen. previous is the status before the command.
