@@ -104,6 +104,32 @@ export function getDecision(id) {
   return db.prepare('SELECT * FROM decisions WHERE id = ?').get(id);
 }
 
+// Ledger totals for /decisions stats.
+// Returns { total, byStatus: {active, revisited, reversed}, topAuthors, topChannels }
+// where the top lists are [{ name, count }], largest first, at most `top` entries.
+export function ledgerStats({ top = 3 } = {}) {
+  const byStatus = Object.fromEntries(STATUSES.map((s) => [s, 0]));
+  for (const row of db.prepare('SELECT status, COUNT(*) AS count FROM decisions GROUP BY status').all()) {
+    byStatus[row.status] = row.count;
+  }
+
+  const topBy = (column) =>
+    db
+      .prepare(
+        `SELECT ${column} AS name, COUNT(*) AS count FROM decisions
+         WHERE ${column} IS NOT NULL AND ${column} != ''
+         GROUP BY ${column} ORDER BY count DESC, name ASC LIMIT ?`,
+      )
+      .all(top);
+
+  return {
+    total: Object.values(byStatus).reduce((a, b) => a + b, 0),
+    byStatus,
+    topAuthors: topBy('author_name'),
+    topChannels: topBy('channel_name'),
+  };
+}
+
 // AUTO-CAPTURE helpers -------------------------------------------------------
 
 export function hasDecision(channel_id, message_ts) {
