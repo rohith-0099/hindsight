@@ -16,6 +16,7 @@ import {
 import {
   ledgerBlocks,
   helpBlocks,
+  statusChanged,
   HOME_BLOCK_LIMIT,
   recallCard,
   guardianWarning,
@@ -141,8 +142,9 @@ app.event('reaction_added', async ({ event, client }) => {
 //   /decisions            everything
 //   /decisions <status>   only active | revisiting | reversed
 //   /decisions search <q> keyword search over the ledger
+//   /decisions reverse|revisit|reopen <id>   change a decision's status
 //   /decisions help       usage
-app.command('/decisions', async ({ ack, respond, command }) => {
+app.command('/decisions', async ({ ack, respond, command, client }) => {
   await ack();
   const cmd = parseCommand(command.text);
 
@@ -153,6 +155,23 @@ app.command('/decisions', async ({ ack, respond, command }) => {
 
   if (cmd.action === 'help') {
     await respond({ response_type: 'ephemeral', blocks: helpBlocks(USAGE), text: 'Using /decisions' });
+    return;
+  }
+
+  if (cmd.action === 'status') {
+    const before = getDecision(cmd.id);
+    if (!before) {
+      await respond({ response_type: 'ephemeral', text: `I don't have a decision #${cmd.id}.` });
+      return;
+    }
+    const byName = await resolveName(client, command.user_id);
+    const decision = setStatus(cmd.id, cmd.status, byName);
+    await respond({
+      response_type: 'ephemeral',
+      blocks: statusChanged({ decision, previous: before.status, byName }),
+      text: `Decision #${decision.id} is ${decision.status}`,
+    });
+    publishHome(client, command.user_id).catch(() => {});
     return;
   }
 
