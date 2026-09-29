@@ -5,6 +5,7 @@ import {
   recallCard,
   guardianWarning,
   statusChanged,
+  decisionDetail,
   statusBreakdown,
   maxLedgerItems,
   MESSAGE_BLOCK_LIMIT,
@@ -114,4 +115,28 @@ test('statusChanged names the new and the previous status', () => {
 test('statusChanged says so when nothing changed', () => {
   const blocks = statusChanged({ decision: decision(4, 'reversed'), previous: 'reversed', byName: 'Sam' });
   assert.match(blocks[0].text.text, /was already reversed/);
+});
+
+test('decisionDetail shows the full text and who saved it', () => {
+  const d = { ...decision(9), text: 'x'.repeat(500), captured_by: 'Arjun' };
+  const blocks = decisionDetail({ decision: d });
+  assert.equal(blocks[0].text.text, 'Decision #9');
+  assert.ok(blocks[1].text.text.includes('x'.repeat(500)));
+  assert.match(text(blocks), /by \*Arjun\*/);
+  assert.doesNotMatch(text(blocks), /History/);
+});
+
+test('decisionDetail lists status history oldest first', () => {
+  const history = [
+    { from_status: 'active', to_status: 'revisited', actor: 'Sara', created_at: 1700000001000 },
+    { from_status: 'revisited', to_status: 'reversed', actor: null, created_at: 1700000002000 },
+  ];
+  const blocks = decisionDetail({ decision: decision(9, 'reversed'), history });
+  const body = blocks.at(-1).text.text;
+  assert.ok(body.indexOf('Active → *Revisiting* by Sara') < body.indexOf('Revisiting → *Reversed* by someone'));
+});
+
+test('decisionDetail keeps very long text inside the section limit', () => {
+  const d = { ...decision(9), text: 'y'.repeat(5000) };
+  assert.ok(decisionDetail({ decision: d })[1].text.text.length <= 3000);
 });

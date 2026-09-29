@@ -162,6 +162,52 @@ export function helpBlocks(usage) {
   ];
 }
 
+// ---- single decision --------------------------------------------------------
+
+// Full view of one decision. history: rows from getHistory(), oldest first.
+export function decisionDetail({ decision, history = [] }) {
+  const { emoji, label } = statusMeta(decision.status);
+  const blocks = [
+    { type: 'header', text: { type: 'plain_text', text: `Decision #${decision.id}`, emoji: true } },
+    {
+      type: 'section',
+      // section text is limited to 3000 characters
+      text: { type: 'mrkdwn', text: `${emoji} *${label}*\n${quote(defuseMentions(truncate(decision.text, 2800)))}` },
+      ...(decision.permalink
+        ? {
+            accessory: {
+              type: 'button',
+              text: { type: 'plain_text', text: 'Show me', emoji: true },
+              url: decision.permalink,
+              action_id: `view_source_${decision.id}`,
+            },
+          }
+        : {}),
+    },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `By *${decision.author_name || 'unknown'}* in *#${decision.channel_name || '?'}* · saved ${slackDate(decision.created_at)} by *${decision.captured_by || 'unknown'}*`,
+        },
+      ],
+    },
+  ];
+
+  if (history.length) {
+    const lines = history.map((e) => {
+      const from = statusMeta(e.from_status).label;
+      const to = statusMeta(e.to_status);
+      return `${to.emoji} ${from} → *${to.label}* by ${e.actor || 'someone'} · ${slackDate(e.created_at)}`;
+    });
+    blocks.push({ type: 'divider' });
+    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `*History*\n${lines.join('\n')}` } });
+  }
+
+  return blocks;
+}
+
 // ---- status change ----------------------------------------------------------
 
 // Reply to /decisions reverse|revisit|reopen. previous is the status before the command.
