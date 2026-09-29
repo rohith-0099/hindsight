@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node src/app.js",
     "seed": "node scripts/seed.js",
+    "export": "node scripts/export.js",
     "test": "node --test"
   },
   "license": "MIT",
