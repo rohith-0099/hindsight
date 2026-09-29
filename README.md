@@ -21,6 +21,10 @@ It captures decisions as they happen, answers "what did we decide about X?" with
 | `/decisions` | See the whole ledger |
 | `/decisions active` \| `revisiting` \| `reversed` | Filter the ledger by status |
 | `/decisions search <words>` | Find decisions by keyword |
+| `/decisions show <id>` | See one decision in full, with its status history |
+| `/decisions reverse` \| `revisit` \| `reopen <id>` | Change a decision's status |
+| `/decisions stats` | See counts by status, top authors and channels |
+| `npm run export` | Write the ledger out as Markdown or JSON |
 
 More in [docs/commands.md](docs/commands.md).
 
