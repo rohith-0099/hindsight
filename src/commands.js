@@ -14,6 +14,7 @@ export const USAGE = [
   ['/decisions', 'Everything in the ledger, newest first'],
   ['/decisions active | revisiting | reversed', 'Only decisions with that status'],
   ['/decisions search <words>', 'Decisions mentioning every word'],
+  ['/decisions show <id>', 'One decision in full, with its status history'],
   ['/decisions reverse <id>', 'Mark a decision as overturned'],
   ['/decisions revisit <id>', 'Mark a decision as being rethought'],
   ['/decisions reopen <id>', 'Put a decision back to active'],
@@ -52,6 +53,15 @@ export function parseCommand(text) {
       return { action: 'error', message: `Which decision? Give me its number — e.g. \`/decisions ${word} 12\`.` };
     }
     return { action: 'status', id, status: STATUS_VERBS[word] };
+  }
+
+  // /decisions show 12, or just /decisions 12
+  if (word === 'show' || parseId(word) != null) {
+    const id = word === 'show' ? (rest.length === 1 ? parseId(rest[0]) : null) : rest.length === 0 ? parseId(word) : null;
+    if (id == null) {
+      return { action: 'error', message: 'Which decision? Give me its number — e.g. `/decisions show 12`.' };
+    }
+    return { action: 'show', id };
   }
 
   if (word === 'search' || word === 'find') {

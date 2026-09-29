@@ -67,3 +67,16 @@ test('status verbs without a usable number are an error', () => {
   assert.equal(parseCommand('reverse 12 13').action, 'error');
   assert.equal(parseCommand('reverse -4').action, 'error');
 });
+
+test('show takes a decision number, with or without the word', () => {
+  assert.deepEqual(parseCommand('show 12'), { action: 'show', id: 12 });
+  assert.deepEqual(parseCommand('show #12'), { action: 'show', id: 12 });
+  assert.deepEqual(parseCommand('12'), { action: 'show', id: 12 });
+  assert.deepEqual(parseCommand('#12'), { action: 'show', id: 12 });
+});
+
+test('show without a usable number is an error', () => {
+  assert.equal(parseCommand('show').action, 'error');
+  assert.equal(parseCommand('show me').action, 'error');
+  assert.equal(parseCommand('12 13').action, 'error');
+});
