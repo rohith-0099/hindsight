@@ -111,7 +111,9 @@ export function markPrompted(channel_id, message_ts, author_id) {
   ).run(channel_id, message_ts, author_id || null, Date.now());
 }
 
+// Returns the updated decision, or undefined when there is no decision with that id.
 export function setStatus(id, status) {
+  if (!STATUSES.includes(status)) throw new Error(`Unknown status: ${status}`);
   db.prepare('UPDATE decisions SET status = ?, updated_at = ? WHERE id = ?').run(status, Date.now(), id);
   return getDecision(id);
 }

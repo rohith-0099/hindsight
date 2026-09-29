@@ -90,3 +90,13 @@ test('searchDecisions treats % and _ literally', () => {
 test('searchDecisions returns nothing for a blank query', () => {
   assert.deepEqual(searchDecisions('   '), []);
 });
+
+test('setStatus rejects a status the ledger does not know', () => {
+  const d = saveDecision(sample()).decision;
+  assert.throws(() => setStatus(d.id, 'archived'), /Unknown status/);
+  assert.equal(getDecision(d.id).status, 'active');
+});
+
+test('setStatus returns undefined for a missing decision', () => {
+  assert.equal(setStatus(999999, 'reversed'), undefined);
+});
