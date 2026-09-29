@@ -49,7 +49,21 @@ test('every usage line parses to something other than an error', () => {
     const example = usage
       .replace('/decisions', '')
       .replace('active | revisiting | reversed', 'active')
-      .replace('<words>', 'postgres');
+      .replace('<words>', 'postgres')
+      .replace('<id>', '12');
     assert.notEqual(parseCommand(example).action, 'error', usage);
   }
+});
+
+test('status verbs take a decision number', () => {
+  assert.deepEqual(parseCommand('reverse 12'), { action: 'status', id: 12, status: 'reversed' });
+  assert.deepEqual(parseCommand('revisit #7'), { action: 'status', id: 7, status: 'revisited' });
+  assert.deepEqual(parseCommand('REOPEN 3'), { action: 'status', id: 3, status: 'active' });
+});
+
+test('status verbs without a usable number are an error', () => {
+  assert.equal(parseCommand('reverse').action, 'error');
+  assert.equal(parseCommand('reverse twelve').action, 'error');
+  assert.equal(parseCommand('reverse 12 13').action, 'error');
+  assert.equal(parseCommand('reverse -4').action, 'error');
 });
