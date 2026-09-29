@@ -4,6 +4,7 @@ import {
   ledgerBlocks,
   recallCard,
   guardianWarning,
+  statusChanged,
   statusBreakdown,
   maxLedgerItems,
   MESSAGE_BLOCK_LIMIT,
@@ -102,4 +103,15 @@ test('model-written guardian explanation cannot ping the channel', () => {
   });
   assert.doesNotMatch(text(blocks), /<!channel>/);
   assert.match(text(blocks), /confidence 90%/);
+});
+
+test('statusChanged names the new and the previous status', () => {
+  const blocks = statusChanged({ decision: decision(4, 'reversed'), previous: 'active', byName: 'Sam' });
+  assert.match(blocks[0].text.text, /Decision #4 is now reversed\* \(was active\)/);
+  assert.match(text(blocks), /changed by \*Sam\*/);
+});
+
+test('statusChanged says so when nothing changed', () => {
+  const blocks = statusChanged({ decision: decision(4, 'reversed'), previous: 'reversed', byName: 'Sam' });
+  assert.match(blocks[0].text.text, /was already reversed/);
 });

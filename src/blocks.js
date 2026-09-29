@@ -162,6 +162,43 @@ export function helpBlocks(usage) {
   ];
 }
 
+// ---- status change ----------------------------------------------------------
+
+// Reply to /decisions reverse|revisit|reopen. previous is the status before the command.
+export function statusChanged({ decision, previous, byName }) {
+  const { emoji, label } = statusMeta(decision.status);
+  const headline =
+    previous === decision.status
+      ? `${emoji} *Decision #${decision.id} was already ${label.toLowerCase()}.*`
+      : `${emoji} *Decision #${decision.id} is now ${label.toLowerCase()}* (was ${statusMeta(previous).label.toLowerCase()})`;
+  return [
+    { type: 'section', text: { type: 'mrkdwn', text: headline } },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: quote(defuseMentions(truncate(decision.text, 240))) },
+      ...(decision.permalink
+        ? {
+            accessory: {
+              type: 'button',
+              text: { type: 'plain_text', text: 'Show me', emoji: true },
+              url: decision.permalink,
+              action_id: `view_source_${decision.id}`,
+            },
+          }
+        : {}),
+    },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `By *${decision.author_name || 'unknown'}* in *#${decision.channel_name || '?'}* · changed by *${byName}*`,
+        },
+      ],
+    },
+  ];
+}
+
 // ---- GUARDIAN warning -------------------------------------------------------
 
 export function guardianWarning({ decision, confidence, explanation }) {
