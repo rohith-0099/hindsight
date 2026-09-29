@@ -467,12 +467,12 @@ async function staleDecision(client, body) {
 app.action('guardian_stands', async ({ ack, body, action, client }) => {
   await ack();
   const id = Number(action.value);
-  const decision = setStatus(id, 'active');
+  const byName = await resolveName(client, body.user.id);
+  const decision = setStatus(id, 'active', byName);
   if (!decision) {
     await staleDecision(client, body);
     return;
   }
-  const byName = await resolveName(client, body.user.id);
   await client.chat.update({
     channel: body.channel.id,
     ts: body.message.ts,
@@ -486,12 +486,12 @@ app.action('guardian_stands', async ({ ack, body, action, client }) => {
 app.action('guardian_revisit', async ({ ack, body, action, client }) => {
   await ack();
   const id = Number(action.value);
-  const decision = setStatus(id, 'revisited');
+  const byName = await resolveName(client, body.user.id);
+  const decision = setStatus(id, 'revisited', byName);
   if (!decision) {
     await staleDecision(client, body);
     return;
   }
-  const byName = await resolveName(client, body.user.id);
   await client.chat.update({
     channel: body.channel.id,
     ts: body.message.ts,
