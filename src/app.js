@@ -450,11 +450,28 @@ app.action('autocapture_no', async ({ ack, body, client }) => {
   });
 });
 
+// A guardian button was pressed for a decision that is no longer in the ledger
+// (e.g. the database was reset). Replace the buttons so they can't be pressed again.
+async function staleDecision(client, body) {
+  await client.chat.update({
+    channel: body.channel.id,
+    ts: body.message.ts,
+    text: 'I no longer have that decision saved.',
+    blocks: [
+      { type: 'section', text: { type: 'mrkdwn', text: '🤷 I no longer have that decision saved.' } },
+    ],
+  });
+}
+
 // Button: decision stands → status active
 app.action('guardian_stands', async ({ ack, body, action, client }) => {
   await ack();
   const id = Number(action.value);
   const decision = setStatus(id, 'active');
+  if (!decision) {
+    await staleDecision(client, body);
+    return;
+  }
   const byName = await resolveName(client, body.user.id);
   await client.chat.update({
     channel: body.channel.id,
@@ -470,6 +487,10 @@ app.action('guardian_revisit', async ({ ack, body, action, client }) => {
   await ack();
   const id = Number(action.value);
   const decision = setStatus(id, 'revisited');
+  if (!decision) {
+    await staleDecision(client, body);
+    return;
+  }
   const byName = await resolveName(client, body.user.id);
   await client.chat.update({
     channel: body.channel.id,
