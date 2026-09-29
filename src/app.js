@@ -8,6 +8,7 @@ import {
   listDecisions,
   searchDecisions,
   getDecision,
+  getHistory,
   setStatus,
   hasDecision,
   wasPrompted,
@@ -17,6 +18,7 @@ import {
   ledgerBlocks,
   helpBlocks,
   statusChanged,
+  decisionDetail,
   HOME_BLOCK_LIMIT,
   recallCard,
   guardianWarning,
@@ -142,6 +144,7 @@ app.event('reaction_added', async ({ event, client }) => {
 //   /decisions            everything
 //   /decisions <status>   only active | revisiting | reversed
 //   /decisions search <q> keyword search over the ledger
+//   /decisions show <id>  one decision in full, with history
 //   /decisions reverse|revisit|reopen <id>   change a decision's status
 //   /decisions help       usage
 app.command('/decisions', async ({ ack, respond, command, client }) => {
@@ -155,6 +158,20 @@ app.command('/decisions', async ({ ack, respond, command, client }) => {
 
   if (cmd.action === 'help') {
     await respond({ response_type: 'ephemeral', blocks: helpBlocks(USAGE), text: 'Using /decisions' });
+    return;
+  }
+
+  if (cmd.action === 'show') {
+    const decision = getDecision(cmd.id);
+    if (!decision) {
+      await respond({ response_type: 'ephemeral', text: `I don't have a decision #${cmd.id}.` });
+      return;
+    }
+    await respond({
+      response_type: 'ephemeral',
+      blocks: decisionDetail({ decision, history: getHistory(cmd.id) }),
+      text: `Decision #${decision.id}`,
+    });
     return;
   }
 
