@@ -18,6 +18,7 @@ export const USAGE = [
   ['/decisions reverse <id>', 'Mark a decision as overturned'],
   ['/decisions revisit <id>', 'Mark a decision as being rethought'],
   ['/decisions reopen <id>', 'Put a decision back to active'],
+  ['/decisions stats', 'Counts by status, top authors and channels'],
   ['/decisions help', 'This message'],
 ];
 
@@ -42,6 +43,7 @@ export function parseCommand(text) {
   const word = head.toLowerCase();
 
   if (word === 'help' || word === '?') return { action: 'help' };
+  if (word === 'stats' && rest.length === 0) return { action: 'stats' };
 
   if (STATUS_WORDS[word] && rest.length === 0) {
     return { action: 'list', status: STATUS_WORDS[word] };

@@ -80,3 +80,8 @@ test('show without a usable number is an error', () => {
   assert.equal(parseCommand('show me').action, 'error');
   assert.equal(parseCommand('12 13').action, 'error');
 });
+
+test('stats is recognised', () => {
+  assert.deepEqual(parseCommand('stats'), { action: 'stats' });
+  assert.equal(parseCommand('stats please').action, 'error');
+});

@@ -7,6 +7,7 @@ import {
   saveDecision,
   listDecisions,
   searchDecisions,
+  ledgerStats,
   getDecision,
   getHistory,
   setStatus,
@@ -19,6 +20,7 @@ import {
   helpBlocks,
   statusChanged,
   decisionDetail,
+  statsBlocks,
   HOME_BLOCK_LIMIT,
   recallCard,
   guardianWarning,
@@ -146,6 +148,7 @@ app.event('reaction_added', async ({ event, client }) => {
 //   /decisions search <q> keyword search over the ledger
 //   /decisions show <id>  one decision in full, with history
 //   /decisions reverse|revisit|reopen <id>   change a decision's status
+//   /decisions stats      counts by status, top authors and channels
 //   /decisions help       usage
 app.command('/decisions', async ({ ack, respond, command, client }) => {
   await ack();
@@ -158,6 +161,11 @@ app.command('/decisions', async ({ ack, respond, command, client }) => {
 
   if (cmd.action === 'help') {
     await respond({ response_type: 'ephemeral', blocks: helpBlocks(USAGE), text: 'Using /decisions' });
+    return;
+  }
+
+  if (cmd.action === 'stats') {
+    await respond({ response_type: 'ephemeral', blocks: statsBlocks(ledgerStats()), text: 'Ledger stats' });
     return;
   }
 
