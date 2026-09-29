@@ -25,6 +25,8 @@ The reply names the decision, who made it, and quotes the messages it is based o
 | `/decisions revisiting` | Decisions the team has reopened |
 | `/decisions reversed` | Decisions that were overturned |
 | `/decisions search <words>` | Decisions mentioning every word (text, author or channel) |
+| `/decisions show <id>` | One decision in full, with its status history. `/decisions 12` works too |
+| `/decisions stats` | Counts by status, plus who and which channels decide the most |
 | `/decisions help` | A reminder of the above |
 
 Replies are visible only to you. A reply holds at most 15 decisions; when there are more, the newest are shown and a footer says how many were left out. Use `search` or a status to narrow it down.
@@ -38,6 +40,16 @@ The same ledger is on the **Home** tab of the Hindsight app, which holds up to 3
 | 🟢 Active | The decision stands. |
 | 🟡 Revisiting | Someone has reopened the question. |
 | 🔴 Reversed | The decision was overturned. The guardian stops checking against it. |
+
+### Changing a status
+
+| Command | Sets the decision to |
+| --- | --- |
+| `/decisions reverse <id>` | 🔴 Reversed |
+| `/decisions revisit <id>` | 🟡 Revisiting |
+| `/decisions reopen <id>` | 🟢 Active |
+
+`<id>` is the decision's number, with or without the `#`. Every change is recorded with who made it and shows up under **History** in `/decisions show <id>`.
 
 ## When Hindsight interrupts
 
