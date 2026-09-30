@@ -84,14 +84,19 @@ async function tryRTS(client, query, limit) {
 async function historySweep(client, query, limit) {
   const queryTokens = [...new Set(tokenize(query))];
 
-  let channels = [];
+  const channels = [];
   try {
-    const r = await client.users.conversations({
-      types: 'public_channel',
-      exclude_archived: true,
-      limit: 200,
-    });
-    channels = r.channels || [];
+    let cursor;
+    do {
+      const r = await client.users.conversations({
+        types: 'public_channel',
+        exclude_archived: true,
+        limit: 200,
+        cursor,
+      });
+      channels.push(...(r.channels || []));
+      cursor = r.response_metadata?.next_cursor || '';
+    } while (cursor);
   } catch (e) {
     log.error('[search] users.conversations failed:', e.data?.error || e.message);
     return [];
