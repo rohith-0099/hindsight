@@ -47,3 +47,47 @@ To try it with realistic sample history, create `#architecture`, `#product` and 
 ```bash
 npm run seed
 ```
+
+## Documentation
+
+- [Slack app setup](docs/slack-setup.md) — scopes, events, slash command
+- [Configuration](docs/configuration.md) — environment variables and tuning
+- [Using Hindsight](docs/commands.md) — capture, recall and every `/decisions` command
+- [Architecture](docs/architecture.md) — modules, flows and design choices
+- [Data model](docs/data-model.md) — tables, export and backups
+- [Troubleshooting](docs/troubleshooting.md)
+
+## Project layout
+
+```
+src/
+  app.js        Bolt app and handlers
+  blocks.js     Block Kit builders
+  commands.js   /decisions argument parser
+  config.js     environment settings
+  db.js         SQLite ledger and status history
+  export.js     Markdown / JSON renderers
+  llm.js        Groq prompts
+  logger.js     levelled logging
+  names.js      cached user and channel names
+  preflight.js  startup environment check
+  search.js     evidence search
+  text.js       text helpers
+scripts/
+  seed.js       sample data for demos
+  export.js     ledger export
+test/           node:test suite
+docs/           guides
+```
+
+## Development
+
+```bash
+npm test
+```
+
+The suite needs no Slack or Groq tokens. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[MIT](LICENSE)
