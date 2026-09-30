@@ -1,5 +1,6 @@
 import Groq from 'groq-sdk';
 import { config } from './config.js';
+import { log } from './logger.js';
 
 const MODEL = config.groqModel;
 
@@ -142,6 +143,7 @@ export async function checkConflict({ message, candidates }) {
   try {
     parsed = await chatJSON({ system, user });
   } catch (e) {
+    log.warn('[llm] checkConflict failed, treating as no conflict:', e.message);
     return { conflict: false, decision_id: null, confidence: 0, explanation: '' };
   }
 
@@ -190,6 +192,7 @@ export async function classifyDecision({ message }) {
   try {
     parsed = await chatJSON({ system, user });
   } catch (e) {
+    log.warn('[llm] classifyDecision failed, treating as not a decision:', e.message);
     return { is_decision: false, confidence: 0, statement: '' };
   }
 
