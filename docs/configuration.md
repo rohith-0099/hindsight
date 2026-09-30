@@ -10,6 +10,7 @@ All configuration is read from environment variables. Copy `.env.example` to `.e
 | `GROQ_MODEL` | no | `openai/gpt-oss-120b` | Model used for recall, guardian and auto-capture. |
 | `DB_PATH` | no | `data/hindsight.sqlite` | SQLite file. The directory is created if missing. |
 | `AUTOCAPTURE` | no | `on` | Set to `off` to disable the "sounds like a decision" prompt. |
+| `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn`, `error` or `silent`. `debug` also logs messages the guardian and auto-capture looked at but skipped. |
 
 ## Tuning
 
