@@ -27,6 +27,18 @@ function scoreText(queryTokens, text) {
   return score;
 }
 
+// The `limit` items sharing the most significant words with the query; ties keep
+// their original order. Nothing is dropped when everything already fits.
+export function mostRelevant(items, query, { limit, text = (item) => item.text } = {}) {
+  if (items.length <= limit) return items;
+  const queryTokens = [...new Set(tokenize(query))];
+  return items
+    .map((item, index) => ({ item, index, score: scoreText(queryTokens, text(item)) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, limit)
+    .map((x) => x.item);
+}
+
 // ---- name caches ------------------------------------------------------------
 
 const userCache = new Map();
