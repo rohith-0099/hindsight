@@ -3,6 +3,8 @@
 //   Fallback: conversations.history sweep across channels the bot is in
 // Returns { source, results:[{text,user_name,channel_name,ts,permalink,score}] }
 
+import { log } from './logger.js';
+
 const STOPWORDS = new Set(
   'the a an and or but of to in on for with we our us you it is are was were be been being this that these those do did does have has had will would should could can may our i me my what when who why how which about over vs versus decide decided decision hindsight'.split(
     /\s+/,
@@ -60,7 +62,7 @@ async function tryRTS(client, query, limit) {
       score: 1,
     }));
   } catch (e) {
-    console.error('[search] RTS unavailable:', e.data?.error || e.message);
+    log.debug('[search] RTS unavailable:', e.data?.error || e.message);
     return null;
   }
 }
@@ -79,7 +81,7 @@ async function historySweep(client, query, limit) {
     });
     channels = r.channels || [];
   } catch (e) {
-    console.error('[search] users.conversations failed:', e.data?.error || e.message);
+    log.error('[search] users.conversations failed:', e.data?.error || e.message);
     return [];
   }
 
