@@ -1,5 +1,7 @@
 # Hindsight
 
+[![test](https://github.com/rohith-0099/hindsight/actions/workflows/test.yml/badge.svg)](https://github.com/rohith-0099/hindsight/actions/workflows/test.yml)
+
 Hindsight is a Slack agent that remembers what your team decided, so nobody has to scroll back through months of threads to find out.
 
 It captures decisions as they happen, answers "what did we decide about X?" with links to the original messages, and speaks up when a new message contradicts something the team already settled.
