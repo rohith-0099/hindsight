@@ -28,12 +28,15 @@ import {
   autocapturePrompt,
   captureConfirmation,
 } from './blocks.js';
-import { searchWorkspace, tokenize } from './search.js';
+import { searchWorkspace, tokenize, mostRelevant } from './search.js';
 import { parseCommand, USAGE } from './commands.js';
 import { log } from './logger.js';
 import { reconstructDecision, checkConflict, classifyDecision } from './llm.js';
 
 const CAPTURE_EMOJI = 'pushpin'; // 📌
+
+// Recall sends ledger entries to the model; past this many, only the most relevant go.
+const RECALL_LEDGER_LIMIT = 40;
 
 // Cheap lexical pre-filter — no LLM call unless a decision-verb phrase is present.
 const DECISION_CUES = [
@@ -286,7 +289,7 @@ app.event('app_mention', async ({ event, client }) => {
   });
 
   try {
-    const ledger = listDecisions();
+    const ledger = mostRelevant(listDecisions(), question, { limit: RECALL_LEDGER_LIMIT });
     const { source, results } = await searchWorkspace(client, question);
     const evidence = mergeEvidence(ledgerAsEvidence(ledger), results);
 
