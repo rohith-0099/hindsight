@@ -30,6 +30,7 @@ import {
 } from './blocks.js';
 import { searchWorkspace, tokenize } from './search.js';
 import { parseCommand, USAGE } from './commands.js';
+import { log } from './logger.js';
 import { reconstructDecision, checkConflict, classifyDecision } from './llm.js';
 
 const CAPTURE_EMOJI = 'pushpin'; // 📌
@@ -70,7 +71,7 @@ async function fetchMessageText(client, channel, ts) {
     });
     return res.messages?.[0]?.text || '';
   } catch (e) {
-    console.error('fetchMessageText failed:', e.data?.error || e.message);
+    log.error('fetchMessageText failed:', e.data?.error || e.message);
     return '';
   }
 }
@@ -134,7 +135,7 @@ app.event('reaction_added', async ({ event, client }) => {
     blocks: captureConfirmation({ decision, created, capturedBy }),
   });
 
-  console.log(`[capture] #${decision.id} ${created ? 'new' : 'dup'} in #${channelName}`);
+  log.info(`[capture] #${decision.id} ${created ? 'new' : 'dup'} in #${channelName}`);
 
   // keep the capturer's Home tab fresh
   publishHome(client, event.user).catch(() => {});
@@ -234,7 +235,7 @@ app.event('app_home_opened', async ({ event, client }) => {
   try {
     await publishHome(client, event.user);
   } catch (e) {
-    console.error('publishHome failed:', e.data?.error || e.message);
+    log.error('publishHome failed:', e.data?.error || e.message);
   }
 });
 
@@ -297,9 +298,9 @@ app.event('app_mention', async ({ event, client }) => {
       text: result.answer || 'Hindsight recall',
       blocks: recallCard({ question, result, evidence, source }),
     });
-    console.log(`[recall] "${question.slice(0, 40)}" via ${source}, ${results.length} hits, found=${result.found}`);
+    log.info(`[recall] "${question.slice(0, 40)}" via ${source}, ${results.length} hits, found=${result.found}`);
   } catch (e) {
-    console.error('[recall] failed:', e.data?.error || e.message);
+    log.error('[recall] failed:', e.data?.error || e.message);
     await client.chat.update({
       channel: event.channel,
       ts: thinking.ts,
@@ -351,12 +352,12 @@ async function guardianCheck({ message, client }) {
       candidates: candidates.map((d) => ({ id: d.id, text: d.text, status: d.status })),
     });
   } catch (e) {
-    console.error('[guardian] checkConflict failed:', e.message);
+    log.error('[guardian] checkConflict failed:', e.message);
     return false;
   }
 
   if (!verdict.conflict || verdict.confidence < config.guardianMinConfidence) {
-    if (verdict.conflict) console.log(`[guardian] below threshold (${verdict.confidence}) — skipped`);
+    if (verdict.conflict) log.debug(`[guardian] below threshold (${verdict.confidence}) — skipped`);
     return false;
   }
 
@@ -373,7 +374,7 @@ async function guardianCheck({ message, client }) {
       explanation: verdict.explanation,
     }),
   });
-  console.log(`[guardian] flagged decision #${decision.id} conf=${verdict.confidence}`);
+  log.info(`[guardian] flagged decision #${decision.id} conf=${verdict.confidence}`);
   return true;
 }
 
@@ -386,7 +387,7 @@ async function autocaptureCheck({ message, guardianFired, client }) {
   const ts = message.ts;
 
   if (guardianFired) {
-    console.log(`[autocapture] skipped-guardian #${ts}`);
+    log.debug(`[autocapture] skipped-guardian #${ts}`);
     return;
   }
   if (message.thread_ts && message.thread_ts !== ts) return; // top-level channel messages only
@@ -398,12 +399,12 @@ async function autocaptureCheck({ message, guardianFired, client }) {
   try {
     verdict = await classifyDecision({ message: message.text });
   } catch (e) {
-    console.error('[autocapture] classifyDecision failed:', e.message);
+    log.error('[autocapture] classifyDecision failed:', e.message);
     return;
   }
 
   if (!verdict.is_decision || verdict.confidence < config.autocaptureMinConfidence) {
-    console.log(`[autocapture] below threshold (${verdict.confidence}) #${ts}`);
+    log.debug(`[autocapture] below threshold (${verdict.confidence}) #${ts}`);
     return;
   }
 
@@ -416,7 +417,7 @@ async function autocaptureCheck({ message, guardianFired, client }) {
     text: 'Sounds like a decision — want me to remember it?',
     blocks: autocapturePrompt({ ts, authorId: message.user, statement: verdict.statement }),
   });
-  console.log(`[autocapture] prompted #${ts} conf=${verdict.confidence}`);
+  log.info(`[autocapture] prompted #${ts} conf=${verdict.confidence}`);
 }
 
 // Single channel-message listener: Guardian first, then auto-capture.
@@ -473,7 +474,7 @@ app.action('autocapture_yes', async ({ ack, body, action, client }) => {
     text: created ? 'Got it — I’ll remember this one.' : 'Already had this one saved.',
     blocks: captureConfirmation({ decision, created, capturedBy }),
   });
-  console.log(`[autocapture] saved #${decision.id} ${created ? 'new' : 'dup'}`);
+  log.info(`[autocapture] saved #${decision.id} ${created ? 'new' : 'dup'}`);
 
   publishHome(client, body.user.id).catch(() => {});
 });
@@ -554,5 +555,5 @@ app.action(/^guardian_view_/, async ({ ack }) => {
 
 (async () => {
   await app.start();
-  console.log('⚡ Hindsight is running (Socket Mode)');
+  log.info('⚡ Hindsight is running (Socket Mode)');
 })();
