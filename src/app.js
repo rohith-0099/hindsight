@@ -3,7 +3,7 @@ import { config } from './config.js';
 import pkg from '@slack/bolt';
 const { App } = pkg;
 
-import {
+import db, {
   saveDecision,
   listDecisions,
   searchDecisions,
@@ -542,6 +542,23 @@ app.action(/^guardian_view_/, async ({ ack }) => {
 app.error(async (error) => {
   log.error('[app] unhandled error:', error.code || '', error.original?.message || error.message);
 });
+
+// Close the socket and the database cleanly on Ctrl-C or a container stop.
+let stopping = false;
+async function shutdown(signal) {
+  if (stopping) return;
+  stopping = true;
+  log.info(`${signal} received — shutting down`);
+  try {
+    await app.stop();
+  } catch (e) {
+    log.error('[app] stop failed:', e.message);
+  }
+  db.close();
+  process.exit(0);
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 (async () => {
   await app.start();
