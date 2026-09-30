@@ -31,6 +31,7 @@ import {
 import { searchWorkspace, tokenize, mostRelevant } from './search.js';
 import { parseCommand, USAGE } from './commands.js';
 import { log } from './logger.js';
+import { userName, channelName } from './names.js';
 import { reconstructDecision, checkConflict, classifyDecision } from './llm.js';
 
 const CAPTURE_EMOJI = 'pushpin'; // 📌
@@ -79,25 +80,6 @@ async function fetchMessageText(client, channel, ts) {
   }
 }
 
-async function resolveName(client, userId) {
-  if (!userId) return 'unknown';
-  try {
-    const res = await client.users.info({ user: userId });
-    return res.user?.profile?.display_name || res.user?.real_name || res.user?.name || userId;
-  } catch {
-    return userId;
-  }
-}
-
-async function resolveChannelName(client, channelId) {
-  try {
-    const res = await client.conversations.info({ channel: channelId });
-    return res.channel?.name || channelId;
-  } catch {
-    return channelId;
-  }
-}
-
 // ---- FEATURE 1: CAPTURE -----------------------------------------------------
 
 app.event('reaction_added', async ({ event, client }) => {
@@ -114,11 +96,11 @@ app.event('reaction_added', async ({ event, client }) => {
 
   const authorId = event.item_user || null;
   const [authorName, channelName] = await Promise.all([
-    resolveName(client, authorId),
-    resolveChannelName(client, channel),
+    userName(client, authorId),
+    channelName(client, channel),
   ]);
 
-  const capturedBy = await resolveName(client, event.user);
+  const capturedBy = await userName(client, event.user);
 
   const { created, decision } = saveDecision({
     text: text || '(message text unavailable)',
@@ -193,7 +175,7 @@ app.command('/decisions', async ({ ack, respond, command, client }) => {
       await respond({ response_type: 'ephemeral', text: `I don't have a decision #${cmd.id}.` });
       return;
     }
-    const byName = await resolveName(client, command.user_id);
+    const byName = await userName(client, command.user_id);
     const decision = setStatus(cmd.id, cmd.status, byName);
     await respond({
       response_type: 'ephemeral',
@@ -455,9 +437,9 @@ app.action('autocapture_yes', async ({ ack, body, action, client }) => {
     client.chat.getPermalink({ channel, message_ts: ts }).catch(() => null),
   ]);
   const [authorName, channelName, capturedBy] = await Promise.all([
-    resolveName(client, authorId),
-    resolveChannelName(client, channel),
-    resolveName(client, body.user.id),
+    userName(client, authorId),
+    channelName(client, channel),
+    userName(client, body.user.id),
   ]);
 
   const { created, decision } = saveDecision({
@@ -515,7 +497,7 @@ async function staleDecision(client, body) {
 app.action('guardian_stands', async ({ ack, body, action, client }) => {
   await ack();
   const id = Number(action.value);
-  const byName = await resolveName(client, body.user.id);
+  const byName = await userName(client, body.user.id);
   const decision = setStatus(id, 'active', byName);
   if (!decision) {
     await staleDecision(client, body);
@@ -534,7 +516,7 @@ app.action('guardian_stands', async ({ ack, body, action, client }) => {
 app.action('guardian_revisit', async ({ ack, body, action, client }) => {
   await ack();
   const id = Number(action.value);
-  const byName = await resolveName(client, body.user.id);
+  const byName = await userName(client, body.user.id);
   const decision = setStatus(id, 'revisited', byName);
   if (!decision) {
     await staleDecision(client, body);
