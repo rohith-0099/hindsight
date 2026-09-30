@@ -561,6 +561,15 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 (async () => {
-  await app.start();
+  try {
+    await app.start();
+  } catch (e) {
+    const reason = e.data?.error || e.message;
+    log.error(`Could not connect to Slack: ${reason}`);
+    if (reason === 'invalid_auth' || reason === 'not_authed') {
+      log.error('Check SLACK_BOT_TOKEN (xoxb-) and SLACK_APP_TOKEN (xapp-) — see docs/slack-setup.md');
+    }
+    process.exit(1);
+  }
   log.info('⚡ Hindsight is running (Socket Mode)');
 })();
