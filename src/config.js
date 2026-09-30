@@ -18,6 +18,7 @@ export function loadConfig(env = process.env) {
     dbPath: env.DB_PATH || 'data/hindsight.sqlite',
     // AUTO-CAPTURE: one env flag to disable the whole feature (default on).
     autocapture: (env.AUTOCAPTURE || 'on').toLowerCase() !== 'off',
+    logLevel: (env.LOG_LEVEL || 'info').toLowerCase(),
     // conservative: prefer misses over false positives
     guardianMinConfidence: threshold(env.GUARDIAN_MIN_CONFIDENCE, 0.85),
     // only prompt on high-confidence decisions
