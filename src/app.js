@@ -538,6 +538,11 @@ app.action(/^guardian_view_/, async ({ ack }) => {
 
 // ---- boot -------------------------------------------------------------------
 
+// Anything a handler throws ends up here instead of as an unhandled rejection.
+app.error(async (error) => {
+  log.error('[app] unhandled error:', error.code || '', error.original?.message || error.message);
+});
+
 (async () => {
   await app.start();
   log.info('⚡ Hindsight is running (Socket Mode)');
