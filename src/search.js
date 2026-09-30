@@ -4,6 +4,7 @@
 // Returns { source, results:[{text,user_name,channel_name,ts,permalink,score}] }
 
 import { log } from './logger.js';
+import { userName } from './names.js';
 
 const STOPWORDS = new Set(
   'the a an and or but of to in on for with we our us you it is are was were be been being this that these those do did does have has had will would should could can may our i me my what when who why how which about over vs versus decide decided decision hindsight'.split(
@@ -37,21 +38,6 @@ export function mostRelevant(items, query, { limit, text = (item) => item.text }
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .slice(0, limit)
     .map((x) => x.item);
-}
-
-// ---- name caches ------------------------------------------------------------
-
-const userCache = new Map();
-async function userName(client, id) {
-  if (!id) return 'unknown';
-  if (userCache.has(id)) return userCache.get(id);
-  let name = id;
-  try {
-    const r = await client.users.info({ user: id });
-    name = r.user?.profile?.display_name || r.user?.real_name || r.user?.name || id;
-  } catch {}
-  userCache.set(id, name);
-  return name;
 }
 
 // ---- primary: RTS -----------------------------------------------------------
