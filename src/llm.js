@@ -10,6 +10,20 @@ function groq() {
   return client;
 }
 
+// One chat completion that must come back as a JSON object. Throws on API or parse failure.
+async function chatJSON({ system, user, temperature = 0 }) {
+  const res = await groq().chat.completions.create({
+    model: MODEL,
+    temperature,
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+  });
+  return JSON.parse(res.choices[0].message.content);
+}
+
 // Reconstruct a decision from ledger + searched evidence.
 // evidence: [{text, author_name/user_name, channel_name, permalink}]
 // Returns: { found, answer, reasoning, who, when, citations:[idx] }
@@ -66,20 +80,11 @@ export async function reconstructDecision({ question, ledger, evidence }) {
     evidenceLines,
   ].join('\n');
 
-  const res = await groq().chat.completions.create({
-    model: MODEL,
-    temperature: 0.2,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: user },
-    ],
-  });
-
   let parsed;
   try {
-    parsed = JSON.parse(res.choices[0].message.content);
-  } catch {
+    parsed = await chatJSON({ system, user, temperature: 0.2 });
+  } catch (e) {
+    if (!(e instanceof SyntaxError)) throw e; // API failure: let the caller report it
     parsed = { found: false, answer: 'Could not parse a reliable answer.', reasoning: '', who: 'unknown', when: 'unknown', citations: [] };
   }
 
@@ -135,16 +140,7 @@ export async function checkConflict({ message, candidates }) {
 
   let parsed;
   try {
-    const res = await groq().chat.completions.create({
-      model: MODEL,
-      temperature: 0,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    });
-    parsed = JSON.parse(res.choices[0].message.content);
+    parsed = await chatJSON({ system, user });
   } catch (e) {
     return { conflict: false, decision_id: null, confidence: 0, explanation: '' };
   }
@@ -192,16 +188,7 @@ export async function classifyDecision({ message }) {
 
   let parsed;
   try {
-    const res = await groq().chat.completions.create({
-      model: MODEL,
-      temperature: 0,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    });
-    parsed = JSON.parse(res.choices[0].message.content);
+    parsed = await chatJSON({ system, user });
   } catch (e) {
     return { is_decision: false, confidence: 0, statement: '' };
   }
