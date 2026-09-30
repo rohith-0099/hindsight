@@ -1,6 +1,6 @@
 {
   "name": "hindsight",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Slack agent that captures team decisions, recalls them with cited evidence, and warns on contradictions.",
   "type": "module",
   "main": "src/app.js",
